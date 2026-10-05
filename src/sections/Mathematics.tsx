@@ -43,8 +43,9 @@ export function Mathematics({
   const controls = (
     <Panel title="Change the assumptions" aside={<Badge>live</Badge>}>
       <p style={{ fontSize: 13, marginBottom: 16 }}>
-        These two sliders are the whole model. Move them and every chart on this page changes at
-        once — because they are not separate dials, they are two views of one geometry.
+        These sliders are the whole thing. Move one and every picture on this page moves with it,
+        because they are not separate dials — they are the same idea seen from different sides.
+        Play with them.
       </p>
       <Slider
         label="Reaction time τ"
@@ -94,20 +95,20 @@ export function Mathematics({
         <Stat
           value={w.toFixed(1)}
           unit="mph"
-          label="Wave speed L/τ"
+          label="Jam speed = L / τ"
           color="var(--series-4)"
           sub="backwards, up the street"
         />
         <Stat
           value={Math.round(fd.qmax * 3600).toLocaleString()}
-          unit="veh/h"
-          label="Capacity per lane"
+          unit="cars/hr"
+          label="Most one lane can carry"
           color="var(--series-3)"
         />
         <Stat
           value={(fd.kj * VEHPM_TO_VEHPMI).toFixed(0)}
-          unit="veh/mi"
-          label="Jam density per lane"
+          unit="cars/mi"
+          label="Cars per mile, bumper to bumper"
           color="var(--series-2)"
         />
       </div>
@@ -124,10 +125,10 @@ export function Mathematics({
               How much road does one car need?
             </h2>
             <p className="lede">
-              That is the only question I had to answer. Everything else — the capacity of a
-              street, the shape of the jam, the speed it travels backwards, the reason a street
-              under the densest towers in the west still carries so little — falls out of the
-              answer as algebra.
+              That is the only question I had to answer. Everything else — how many cars fit, how
+              many get through a green, how fast the jam runs backwards, and why a street under the
+              tallest towers in the west still crawls — comes out of the answer as ordinary
+              algebra. No step below is harder than rearranging a formula.
             </p>
           </div>
 
@@ -188,7 +189,7 @@ export function Mathematics({
                   <p>
                     L is the intercept of that line, so it had better not be a guess. The traffic
                     API tells me how fast vehicles are moving but never what they are, so I built L
-                    from the published fleet composition for this corridor: the weighted mean
+                    from published counts of what actually drives this street: the average
                     length of what drives Figueroa, plus the bumper gap drivers leave when stopped.
                   </p>
                   <div className="formula">
@@ -204,7 +205,7 @@ export function Mathematics({
                 </div>
               </div>
 
-              <Panel title="The fleet on this corridor">
+              <Panel title="What actually drives this street">
                 <VehicleMixChart />
               </Panel>
 
@@ -215,23 +216,25 @@ export function Mathematics({
                   <h3 className="h3">Turn the spacing upside down and you get density</h3>
                   <p>
                     If every car owns <em>s</em> feet of road, then a mile of road holds one car for
-                    every <em>s</em> feet of it. Traffic engineers call that{' '}
-                    <strong>density</strong>, <em>k</em>, and it is literally the reciprocal of a
-                    length:
+                    every <em>s</em> feet of it. So &ldquo;how many cars fit in a mile&rdquo; is just
+                    &ldquo;how long is a mile&rdquo; divided by &ldquo;how much room does one car
+                    take&rdquo;. That count has a name — <strong>density</strong>, written{' '}
+                    <em>k</em> — and it is simply one divided by a length:
                   </p>
                   <div className="formula">
                     <span className="fx">k = 1 / s</span>
                     <span className="where">
                       vehicles per mile, per lane. At a dead stop s = L, so the maximum possible
                       density — the <b>jam density</b> — is k<sub>j</sub> = 1/L ={' '}
-                      <b>{(fd.kj * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi/lane</b>.
+                      <b>{(fd.kj * VEHPM_TO_VEHPMI).toFixed(0)} cars per mile, one lane</b>.
                     </span>
                   </div>
                   <p>
-                    This reciprocal is the move that makes the whole thing work, and it is the step
-                    I found least obvious. A spacing is a length; a density is one-over-a-length.
-                    Flipping between them is why a straight line in one picture becomes a bend in
-                    another.
+                    That flip — turning a length upside down to get a count — is the move that
+                    makes everything else work, and it is the step I found least obvious. Room per
+                    car is a distance. Cars per mile is one divided by that distance. Flipping
+                    between the two is why a straight line in one picture turns into a bend in the
+                    next one.
                   </p>
                 </div>
               </div>
@@ -242,9 +245,10 @@ export function Mathematics({
                 <div className="step-body prose">
                   <h3 className="h3">Flow, and the line that falls out of it</h3>
                   <p>
-                    The quantity that actually matters to a city is <strong>flow</strong>: how many
-                    cars pass a point per hour. Flow is density times speed — how many cars are
-                    there, times how fast they are going past.
+                    What a city actually cares about is simpler than either of those: <strong>how
+                    many cars go past per hour</strong>. That is called <strong>flow</strong>, and
+                    it is just the two numbers we already have, multiplied. How many cars are
+                    packed in, times how fast they are moving past you.
                   </p>
                   <div className="formula">
                     <span className="fx">q = k · v</span>
@@ -277,24 +281,26 @@ export function Mathematics({
                 <div className="step-body prose">
                   <h3 className="h3">Two lines, one peak: the fundamental diagram</h3>
                   <p>
-                    There are two regimes. When the road is empty, nobody is following anybody, so
-                    everyone drives at the free-flow speed and <em>q = v<sub>f</sub> · k</em> — a
-                    line through the origin. When the road is full, everyone is following, and we
-                    just derived <em>q = 1/τ − (L/τ)k</em>. Draw both:
+                    A road is only ever in one of two moods. <strong>Empty:</strong> nobody is
+                    stuck behind anybody, so everyone just drives at their own speed, and more cars
+                    simply means more cars going past. <strong>Full:</strong> everybody is now
+                    following somebody, which is the case we worked out a moment ago. Draw both
+                    moods on the same picture:
                   </p>
                   <div className="formula">
                     <span className="fx">free: q = v_f · k&nbsp;&nbsp;&nbsp;&nbsp;congested: q = w · (k_j − k)</span>
                     <span className="where">
                       They cross at the <b>critical density</b> k<sub>c</sub> ={' '}
-                      {(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi/lane, and the height of that
+                      {(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)} cars per mile, one lane, and the height of that
                       crossing is the <b>capacity</b> of the lane:{' '}
-                      <b>{Math.round(fd.qmax * 3600).toLocaleString()} veh/h</b>.
+                      <b>{Math.round(fd.qmax * 3600).toLocaleString()} cars/hr</b>.
                     </span>
                   </div>
                   <p>
-                    The shape is a triangle. The left edge is the road working; the right edge is
-                    the road failing; the peak is the best it can ever do. Everything a lane can
-                    physically be is somewhere on those two segments.
+                    The shape is a triangle. Going up the left side, the road is working, and
+                    adding cars adds throughput. Coming down the right side, the road is failing,
+                    and adding cars makes it worse. The peak is the best it will ever do. Every
+                    state a lane can possibly be in is somewhere on those two lines.
                   </p>
                 </div>
               </div>
@@ -328,11 +334,11 @@ export function Mathematics({
                 </p>
                 <p>
                   Its peak height is not far off: {Math.round(greenshieldsCapacity(params) * 3600).toLocaleString()}{' '}
-                  against {Math.round(fd.qmax * 3600).toLocaleString()} veh/h, about{' '}
+                  against {Math.round(fd.qmax * 3600).toLocaleString()} cars/hr, about{' '}
                   {Math.abs(Math.round((greenshieldsCapacity(params) / fd.qmax - 1) * 100))}% low. The
                   problem is <em>where</em> it puts that peak. Greenshields says a lane does its best
                   work at half the jam density —{' '}
-                  <strong>{((jamDensity(params) / 2) * VEHPM_TO_VEHPMI).toFixed(0)} veh/mile</strong>{' '}
+                  <strong>{((jamDensity(params) / 2) * VEHPM_TO_VEHPMI).toFixed(0)} cars/mile</strong>{' '}
                   — while the triangular model says{' '}
                   <strong>{(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)}</strong>.
                 </p>
@@ -351,13 +357,14 @@ export function Mathematics({
                 <div className="step-body prose">
                   <h3 className="h3">On this diagram, every slope is a speed</h3>
                   <p>
-                    This is the idea that made the whole project click, and it is pure geometry.
-                    Flow is vehicles per hour; density is vehicles per mile. Divide one by the
-                    other and the vehicles cancel:
+                    This is the idea that made the whole project click, and it is nothing more than
+                    cancelling units. One number is cars per hour. The other is cars per mile.
+                    Divide one by the other and the cars cancel out, leaving miles per hour — a
+                    speed:
                   </p>
                   <div className="formula">
                     <span className="fx">
-                      q / k = (veh/hour) / (veh/mile) = miles/hour
+                      q / k = (cars/hrour) / (cars/mile) = miles/hour
                     </span>
                   </div>
                   <p>
@@ -366,20 +373,22 @@ export function Mathematics({
                   </p>
                   <ul style={{ color: 'var(--ink-secondary)', paddingLeft: 20, marginBottom: '1.1em' }}>
                     <li style={{ marginBottom: 8 }}>
-                      <strong>From the origin to a point</strong> — the speed of the{' '}
-                      <em>cars</em> in that state. (Hover any live station on the chart above to see
-                      this line drawn.)
+                      <strong>From the corner of the chart to a dot</strong> — that slope is how
+                      fast the <em>cars</em> are going. (Hover any live dot above to see the line
+                      drawn.)
                     </li>
                     <li>
-                      <strong>The chord between two points</strong> — the speed of the{' '}
-                      <em>boundary</em> between those two states. This is the shockwave.
+                      <strong>The line joining two dots</strong> — that slope is how fast the{' '}
+                      <em>edge between them</em> is travelling. That edge is the back of the queue.
+                      Engineers call it a <strong>shockwave</strong>.
                     </li>
                   </ul>
                   <div className="formula">
                     <span className="fx">u = (q₂ − q₁) / (k₂ − k₁)</span>
                     <span className="where">
-                      the slope of the chord. If it comes out <b>negative</b>, the boundary is
-                      travelling <b>upstream</b> — backwards up the street, against the traffic.
+                      the slope of the line between the two dots. If it comes out{' '}
+                      <b>negative</b>, that edge is moving <b>backwards up the street</b>, against
+                      the direction everybody is driving.
                     </span>
                   </div>
                 </div>
@@ -391,9 +400,9 @@ export function Mathematics({
                 <div className="step-body prose">
                   <h3 className="h3">The answer</h3>
                   <p>
-                    Now put the two together. When traffic runs into a dead stop, the boundary is a
-                    chord along the congested branch — and the slope of that branch is the thing we
-                    derived in step 4:
+                    Now put the two together. When moving traffic runs into stopped traffic, the
+                    edge between them sits on the falling side of the triangle — and we already
+                    worked out the slope of that side back in step 4:
                   </p>
                   <div className="formula" style={{ borderLeftColor: 'var(--series-4)' }}>
                     <span className="fx" style={{ fontSize: 21, color: 'var(--series-4)' }}>
@@ -497,8 +506,8 @@ export function Mathematics({
                     ),
                   })
                 }
-                format={(v) => `${v.toFixed(0)} veh/mi/lane`}
-                hint={`Critical density here is ${(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi. Push past it and jams appear with no perturbation at all.`}
+                format={(v) => `${v.toFixed(0)} cars per mile, one lane`}
+                hint={`Critical density here is ${(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)} cars/mi. Push past it and jams appear with no perturbation at all.`}
               />
 
               <div
@@ -527,7 +536,7 @@ export function Mathematics({
                 <Stat
                   value={sim.stats.meanSpeedMph.toFixed(0)}
                   unit="mph"
-                  label="Mean speed"
+                  label="Average speed"
                 />
               </div>
 
@@ -561,7 +570,7 @@ export function Mathematics({
                 The peak of the triangle is not the capacity of a city street. It is the{' '}
                 <strong>saturation flow</strong>: the rate cars cross the stop line while the light
                 is green and the queue is still rolling. Here that is{' '}
-                <strong>{Math.round(saturationFlow(params) * 3600).toLocaleString()} veh/h per lane</strong>.
+                <strong>{Math.round(saturationFlow(params) * 3600).toLocaleString()} cars/hr per lane</strong>.
               </p>
               <p>
                 Turn it upside down and you get the number traffic engineers actually measure with a
@@ -607,8 +616,8 @@ export function Mathematics({
               <div className="formula">
                 <span className="fx">capacity = q_max &times; (green / cycle)</span>
                 <span className="where">
-                  At Wilshire, the shortest green on this corridor at 42%, that is{' '}
-                  <b>{Math.round(signalCapacity(params, 0.42) * 3600).toLocaleString()} veh/h per lane</b>{' '}
+                  At Wilshire, which has the shortest green on the street at 42%, that is{' '}
+                  <b>{Math.round(signalCapacity(params, 0.42) * 3600).toLocaleString()} cars/hr per lane</b>{' '}
                   — less than half of what the asphalt could do.
                 </span>
               </div>

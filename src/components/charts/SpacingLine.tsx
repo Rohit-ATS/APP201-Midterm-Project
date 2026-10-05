@@ -47,7 +47,7 @@ export function SpacingLine({
     <Figure
       caption={
         <>
-          The line never passes through the origin. Even at a dead stop a car still owns{' '}
+          The line never starts at zero. Even stopped dead at a red, a car still takes up{' '}
           <b style={{ color: 'var(--ink-secondary)' }}>L = {mToFt(params.L).toFixed(0)} ft</b> of
           road. That stubborn intercept is what makes a jam a jam — and, divided by the slope, it
           is the speed the jam travels backwards.

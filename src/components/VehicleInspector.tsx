@@ -188,10 +188,10 @@ export function VehicleInspector({
           What this one car contributes
         </span>
         <span className="fx" style={{ fontSize: 15 }}>
-          k = 1/s = {kPerMile.toFixed(0)} veh/mi
+          k = 1/s = {kPerMile.toFixed(0)} cars/mi
         </span>
         <span className="fx" style={{ fontSize: 15 }}>
-          q = k&middot;v = {(kVeh * veh.v * 3600).toFixed(0)} veh/h
+          q = k&middot;v = {(kVeh * veh.v * 3600).toFixed(0)} cars/hr
         </span>
         <span className="where">
           Density and flow are not properties of a crowd. They are what you get when you take one

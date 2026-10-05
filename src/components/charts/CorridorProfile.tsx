@@ -58,7 +58,7 @@ export function CorridorProfile({
           Southbound, from 3rd Street at the left to 11th at the right. The arrows under the axis
           are the boundaries between neighbouring traffic states, drawn in the direction they are
           travelling. Yellow arrows point backwards up the street — those are queues growing
-          toward the cars that have not arrived yet.
+          toward cars that have not even got there yet.
         </>
       }
     >
@@ -165,12 +165,12 @@ export function CorridorProfile({
                       <TipRow label="Speed" value={`${p.mph.toFixed(0)} mph`} />
                       <TipRow
                         label="Density"
-                        value={`${(p.st.k * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi/ln`}
+                        value={`${(p.st.k * VEHPM_TO_VEHPMI).toFixed(0)} cars/mi`}
                       />
                       <TipRow label="Lanes" value={p.st.lanes} />
                       <TipRow
                         label="Flow"
-                        value={`${Math.round(p.st.qTotal).toLocaleString()} veh/h`}
+                        value={`${Math.round(p.st.qTotal).toLocaleString()} cars/hr`}
                       />
                       <TipRow label="Level of service" value={p.st.los} />
                     </>,

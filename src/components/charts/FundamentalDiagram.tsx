@@ -46,7 +46,7 @@ export function FundamentalDiagramChart({
   const tri = sampleFundamental(params, 2); // triangle needs only its corners
   const gs = sampleGreenshields(params, 120);
 
-  // Display units: veh/mile/lane and veh/hour/lane
+  // Display units: cars/mile/lane and cars/hrour/lane
   const toK = (k: number) => k * VEHPM_TO_VEHPMI;
   const toQ = (q: number) => q * 3600;
 
@@ -78,10 +78,10 @@ export function FundamentalDiagramChart({
     <Figure
       caption={
         <>
-          The triangular model is built from the spacing rule; the dashed parabola is
-          Greenshields&rsquo; older smooth model, drawn for comparison. The triangle peaks at{' '}
+          The triangle is built from the spacing rule on this page. The dashed curve is an older,
+          smoother guess from 1935, drawn so you can compare them. The triangle tops out at{' '}
           <b style={{ color: 'var(--ink-secondary)' }}>
-            {Math.round(toQ(fd.qmax)).toLocaleString()} veh/h per lane
+            {Math.round(toQ(fd.qmax)).toLocaleString()} cars/hr per lane
           </b>
           , which matches what engineers actually measure. The parabola peaks{' '}
           {Math.round((greenshieldsCapacity(params) / fd.qmax - 1) * 100)}% higher — a reminder
@@ -104,7 +104,7 @@ export function FundamentalDiagramChart({
             x={x}
             y={y}
             xLabel="Density — vehicles per mile, per lane"
-            yLabel="Flow — veh/h"
+            yLabel="Flow — cars/hr"
             xTicks={ticks(0, kMax, 5)}
             grid="both"
             yFormat={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)))}
@@ -211,9 +211,9 @@ export function FundamentalDiagramChart({
                         <TipRow label="Speed" value={`${mpsToMph(s.v).toFixed(0)} mph`} />
                         <TipRow
                           label="Density"
-                          value={`${toK(s.k).toFixed(0)} veh/mi/ln`}
+                          value={`${toK(s.k).toFixed(0)} cars/mi`}
                         />
-                        <TipRow label="Flow" value={`${Math.round(toQ(s.q))} veh/h/ln`} />
+                        <TipRow label="Flow" value={`${Math.round(toQ(s.q))} cars/hr`} />
                         <TipRow label="Level of service" value={s.los} />
                       </>,
                     );

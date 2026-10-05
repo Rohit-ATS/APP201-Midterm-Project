@@ -129,7 +129,7 @@ export function LiveCorridor({
                 <Stat
                   value={mpsToMph(analysis.meanSpeed).toFixed(0)}
                   unit="mph"
-                  label="Mean speed"
+                  label="Average speed"
                 />
                 <Stat
                   value={`${Math.round(analysis.travelTime / 60)}`}
@@ -166,7 +166,7 @@ export function LiveCorridor({
               <CorridorProfile analysis={analysis} aspect={0.52} />
             </Panel>
 
-            <Panel glass title="Where each intersection sits on the diagram">
+            <Panel glass title="Where each light sits on the triangle">
               <FundamentalDiagramChart
                 params={params}
                 stations={analysis.stations}
@@ -195,7 +195,7 @@ export function LiveCorridor({
                       <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}> mph ←</span>
                     </div>
                     <div className="stat-label" style={{ marginTop: 3 }}>
-                      Wave speed L/τ
+                      Jam speed = L/τ
                     </div>
                   </div>
                   <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--hairline)' }} />
@@ -344,14 +344,14 @@ export function LiveCorridor({
               </p>
             </Panel>
 
-            <Panel glass title="Intersection readings" aside={<Badge>{analysis.stations.length}</Badge>}>
+            <Panel glass title="What each light is doing" aside={<Badge>{analysis.stations.length}</Badge>}>
               <table className="table">
                 <thead>
                   <tr>
                     <th>Cross street</th>
                     <th style={{ textAlign: 'right' }}>mph</th>
-                    <th style={{ textAlign: 'right' }}>veh/mi</th>
-                    <th style={{ textAlign: 'right' }}>LOS</th>
+                    <th style={{ textAlign: 'right' }}>cars/mi</th>
+                    <th style={{ textAlign: 'right' }} title="Level of service: the A-F grade engineers give a road">Grade</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -380,7 +380,7 @@ export function LiveCorridor({
 
             <Panel
               glass
-              title="Wave readings"
+              title="Which way each queue is moving"
               aside={
                 <Badge color="var(--series-4)">
                   {waveFeed.filter((v) => v.u < 0).length} upstream
@@ -388,12 +388,13 @@ export function LiveCorridor({
               }
             >
               <p className="muted" style={{ fontSize: 11.5, marginTop: 0, marginBottom: 12 }}>
-                The boundary between each neighbouring pair of intersections. Every pair has a
-                different speed drop — and yet, wherever both are congested, the boundary comes out
-                at the same <strong style={{ color: 'var(--series-4)' }}>{w.toFixed(1)} mph</strong>
-                . That is not the data repeating itself. Two points on the congested branch lie on
-                one straight line, so the chord between them <em>is</em> that line, and its slope is
-                &minus;L/&tau; whichever two you pick.
+                The edge between each pair of neighbouring intersections, and which way it is
+                moving. Every pair has a different speed drop — and yet, wherever both ends are
+                jammed, the edge comes out at the same{' '}
+                <strong style={{ color: 'var(--series-4)' }}>{w.toFixed(1)} mph</strong>. That is
+                not the data repeating itself. Both dots sit on the same straight line of the
+                triangle, so the line joining them <em>is</em> that line — and a line only has one
+                slope, no matter which two points you pick on it.
               </p>
               <div style={{ display: 'grid', gap: 10 }}>
                 {waveFeed.map((wv) => {
@@ -438,7 +439,7 @@ export function LiveCorridor({
               </div>
             </Panel>
 
-            <Panel glass title="Lane geometry">
+            <Panel glass title="Lanes, block by block">
               <table className="table">
                 <thead>
                   <tr>
@@ -460,9 +461,9 @@ export function LiveCorridor({
                 </tbody>
               </table>
               <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>
-                Saturation flow is what the lanes could discharge with a permanent green. Multiply
-                by the green share of the cycle to get what they actually carry — roughly 45% of
-                these numbers.
+                That column is what these lanes could push through if the light were green
+                forever. The light is not green forever — it is green about 45% of the time — so
+                the real number is a bit under half of what you see here.
               </p>
             </Panel>
           </div>
@@ -483,10 +484,10 @@ export function LiveCorridor({
             <Panel>
               <strong style={{ display: 'block', marginBottom: 8 }}>Click a car</strong>
               <p style={{ fontSize: 13.5, margin: 0 }}>
-                The inspector solves that vehicle&rsquo;s own copy of{' '}
-                <code>v = (s − L)/τ</code> with its own numbers, and names which constraint is
-                binding: the open road, the car in front, or a red light. Follow one car through a
-                light and watch the binding term hand over.
+                The panel does that one car&rsquo;s sum for you, with its own numbers in it, and
+                tells you what is holding that particular driver back right now: open road, the car
+                in front, or a red light. Follow one car through a light and watch which of the
+                three takes over.
               </p>
             </Panel>
             <Panel>
@@ -500,9 +501,10 @@ export function LiveCorridor({
             <Panel>
               <strong style={{ display: 'block', marginBottom: 8 }}>The signals do the work</strong>
               <p style={{ fontSize: 13.5, margin: 0 }}>
-                On a freeway you wait for a jam. Here one is manufactured every 90 seconds by a red
-                light, which means the backward wave can be watched on demand. Switch to{' '}
-                <em>Colour by speed</em> and the queues light up as bands moving the wrong way.
+                On a freeway you have to wait for a jam to happen. Here a red light builds one
+                every 90 seconds, on a timer, so you can watch the backwards wave whenever you
+                like. Switch to <em>Colour by speed</em> and the queues light up as bright bands
+                sliding the wrong way.
               </p>
             </Panel>
           </div>

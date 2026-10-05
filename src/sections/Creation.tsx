@@ -91,7 +91,7 @@ export function Creation({ traffic }: { traffic: TrafficHook; sim: SimulationHoo
                   max={70}
                   step={1}
                   onChange={setDensity}
-                  format={(v) => `${v} veh/mi`}
+                  format={(v) => `${v} cars/mi`}
                   hint="Below the critical density of about 31 the cloth is plain. Above it, the weft appears on its own."
                 />
 
