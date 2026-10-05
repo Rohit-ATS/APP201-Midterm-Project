@@ -1,0 +1,685 @@
+import { useState } from 'react';
+import { Panel, Slider, Stat, Badge } from '../components/ui/primitives';
+import { SpacingLine } from '../components/charts/SpacingLine';
+import { FundamentalDiagramChart } from '../components/charts/FundamentalDiagram';
+import { VehicleMixChart } from '../components/charts/VehicleMix';
+import { SpaceTimeDiagram } from '../components/charts/SpaceTimeDiagram';
+import type { TrafficHook } from '../lib/useTraffic';
+import type { SimulationHook } from '../lib/useSimulation';
+import {
+  mpsToMph,
+  mToFt,
+  waveSpeed,
+  fundamentalDiagram,
+  greenshieldsCapacity,
+  DEFAULT_PARAMS,
+  VEHPM_TO_VEHPMI,
+} from '../lib/trafficMath';
+import { effectiveLength, meanVehicleLength, STOPPED_GAP } from '../data/vehicleMix';
+
+export function Mathematics({
+  traffic,
+  sim,
+}: {
+  traffic: TrafficHook;
+  sim: SimulationHook;
+}) {
+  const { params, setParams, resetParams, analysis } = traffic;
+  const fd = fundamentalDiagram(params);
+  const w = mpsToMph(waveSpeed(params));
+  const [showGreenshields, setShowGreenshields] = useState(true);
+
+  // the pair of neighbouring stations with the strongest backward wave
+  const chordPair = analysis.dominantWave
+    ? ([analysis.dominantWave.from, analysis.dominantWave.to] as [string, string])
+    : undefined;
+
+  const controls = (
+    <Panel title="Change the assumptions" aside={<Badge>live</Badge>}>
+      <p style={{ fontSize: 13, marginBottom: 16 }}>
+        These two sliders are the whole model. Move them and every chart on this page changes at
+        once — because they are not separate dials, they are two views of one geometry.
+      </p>
+      <Slider
+        label="Reaction time τ"
+        value={params.tau}
+        min={0.6}
+        max={3}
+        step={0.05}
+        onChange={(tau) => setParams({ tau })}
+        format={(v) => `${v.toFixed(2)} s`}
+        hint="How long after the car ahead moves before you do. Typical human: 1.2–2.0 s."
+      />
+      <Slider
+        label="Effective vehicle length L"
+        value={params.L}
+        min={4}
+        max={14}
+        step={0.1}
+        onChange={(L) => setParams({ L })}
+        format={(v) => `${mToFt(v).toFixed(1)} ft`}
+        hint="The average car plus the gap drivers keep when stopped."
+      />
+      <Slider
+        label="Free-flow speed vf"
+        value={mpsToMph(params.vf)}
+        min={35}
+        max={85}
+        step={1}
+        onChange={(mph) => setParams({ vf: mph / 2.236936 })}
+        format={(v) => `${v.toFixed(0)} mph`}
+        hint="The speed of a car with the road to itself."
+      />
+      <div className="row" style={{ marginTop: 6 }}>
+        <button className="btn" onClick={resetParams}>
+          Reset to the 405
+        </button>
+      </div>
+
+      <div
+        style={{
+          marginTop: 20,
+          paddingTop: 18,
+          borderTop: '1px solid var(--hairline)',
+          display: 'grid',
+          gap: 18,
+        }}
+      >
+        <Stat
+          value={w.toFixed(1)}
+          unit="mph"
+          label="Wave speed L/τ"
+          color="var(--series-4)"
+          sub="backwards, up the freeway"
+        />
+        <Stat
+          value={Math.round(fd.qmax * 3600).toLocaleString()}
+          unit="veh/h"
+          label="Capacity per lane"
+          color="var(--series-3)"
+        />
+        <Stat
+          value={(fd.kj * VEHPM_TO_VEHPMI).toFixed(0)}
+          unit="veh/mi"
+          label="Jam density per lane"
+          color="var(--series-2)"
+        />
+      </div>
+    </Panel>
+  );
+
+  return (
+    <>
+      <section className="section" style={{ paddingTop: 64 }}>
+        <div className="wrap">
+          <div className="section-head">
+            <div className="eyebrow">Section 2 · Explain the Mathematics</div>
+            <h2 className="h2">
+              How much road does one car need?
+            </h2>
+            <p className="lede">
+              That is the only question I had to answer. Everything else — the capacity of a
+              freeway, the shape of the jam, the speed it travels backwards, the reason a $1.6
+              billion widening did not help — falls out of the answer as algebra.
+            </p>
+          </div>
+
+          <div className="split split-wide-right">
+            <div style={{ position: 'sticky', top: 72 }}>{controls}</div>
+
+            <div>
+              {/* ---------------- STEP 1 ---------------- */}
+              <div className="step">
+                <span className="step-num">1</span>
+                <div className="step-body prose">
+                  <h3 className="h3">A moving car owns a segment of road</h3>
+                  <p>
+                    Think about what a car actually occupies on a freeway. Not just its body — the
+                    body <em>plus</em> the gap in front of it that the driver refuses to give up.
+                    Call that total length the <strong>spacing</strong>, measured front bumper to
+                    front bumper. It is the length of road one car is using.
+                  </p>
+                  <p>
+                    Now, how big is the gap? Drivers do not think in feet. They think in{' '}
+                    <em>time</em> — the two-second rule, the &ldquo;count to three&rdquo; your
+                    driving instructor taught you. A driver keeps a fixed number of{' '}
+                    <strong>seconds</strong> of following distance, which means the gap in{' '}
+                    <strong>feet</strong> is that time multiplied by the speed.
+                  </p>
+
+                  <div className="formula">
+                    <span className="fx">s(v) = L + v · τ</span>
+                    <span className="where">
+                      <b>s</b> — spacing, front bumper to front bumper
+                      <br />
+                      <b>L</b> — effective vehicle length (the car, plus the gap it keeps at a dead
+                      stop) = {mToFt(params.L).toFixed(1)} ft
+                      <br />
+                      <b>v</b> — speed
+                      <br />
+                      <b>τ</b> — following time headway = {params.tau.toFixed(2)} s
+                    </span>
+                  </div>
+
+                  <p>
+                    That is a <strong>straight line</strong>. Its slope is the reaction time. Its
+                    y-intercept is the length of a car. Both of those will matter enormously in a
+                    moment.
+                  </p>
+                </div>
+              </div>
+
+              <Panel title="The spacing line">
+                <SpacingLine params={params} markSpeedMph={mpsToMph(analysis.meanSpeed)} />
+              </Panel>
+
+              {/* ---------------- STEP 2 ---------------- */}
+              <div className="step" style={{ marginTop: 44 }}>
+                <span className="step-num">2</span>
+                <div className="step-body prose">
+                  <h3 className="h3">Where L actually comes from</h3>
+                  <p>
+                    L is the intercept of that line, so it had better not be a guess. The traffic
+                    API tells me how fast vehicles are moving but never what they are, so I built L
+                    from the published fleet composition for this corridor: the weighted mean
+                    length of what drives the 405, plus the bumper gap drivers leave when stopped.
+                  </p>
+                  <div className="formula">
+                    <span className="fx">
+                      L = Σ(share<sub>i</sub> × length<sub>i</sub>) + gap
+                    </span>
+                    <span className="where">
+                      = {mToFt(meanVehicleLength()).toFixed(1)} ft of average vehicle +{' '}
+                      {mToFt(STOPPED_GAP).toFixed(1)} ft of stopped gap ={' '}
+                      <b>{mToFt(effectiveLength()).toFixed(1)} ft</b>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Panel title="The fleet on this corridor">
+                <VehicleMixChart />
+              </Panel>
+
+              {/* ---------------- STEP 3 ---------------- */}
+              <div className="step" style={{ marginTop: 44 }}>
+                <span className="step-num">3</span>
+                <div className="step-body prose">
+                  <h3 className="h3">Turn the spacing upside down and you get density</h3>
+                  <p>
+                    If every car owns <em>s</em> feet of road, then a mile of road holds one car for
+                    every <em>s</em> feet of it. Traffic engineers call that{' '}
+                    <strong>density</strong>, <em>k</em>, and it is literally the reciprocal of a
+                    length:
+                  </p>
+                  <div className="formula">
+                    <span className="fx">k = 1 / s</span>
+                    <span className="where">
+                      vehicles per mile, per lane. At a dead stop s = L, so the maximum possible
+                      density — the <b>jam density</b> — is k<sub>j</sub> = 1/L ={' '}
+                      <b>{(fd.kj * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi/lane</b>.
+                    </span>
+                  </div>
+                  <p>
+                    This reciprocal is the move that makes the whole thing work, and it is the step
+                    I found least obvious. A spacing is a length; a density is one-over-a-length.
+                    Flipping between them is why a straight line in one picture becomes a bend in
+                    another.
+                  </p>
+                </div>
+              </div>
+
+              {/* ---------------- STEP 4 ---------------- */}
+              <div className="step">
+                <span className="step-num">4</span>
+                <div className="step-body prose">
+                  <h3 className="h3">Flow, and the line that falls out of it</h3>
+                  <p>
+                    The quantity that actually matters to a city is <strong>flow</strong>: how many
+                    cars pass a point per hour. Flow is density times speed — how many cars are
+                    there, times how fast they are going past.
+                  </p>
+                  <div className="formula">
+                    <span className="fx">q = k · v</span>
+                  </div>
+                  <p>
+                    Now substitute. In congestion every driver is following the spacing rule, so
+                    rearranging <em>s = L + vτ</em> gives <em>v = (s − L)/τ</em>, and with{' '}
+                    <em>s = 1/k</em>:
+                  </p>
+                  <div className="formula">
+                    <span className="fx">q = k · (1/k − L) / τ</span>
+                    <span className="fx">q = (1 − kL) / τ</span>
+                    <span className="fx">
+                      q = 1/τ − (L/τ) · k
+                    </span>
+                    <span className="where">
+                      A straight line in k and q. Its slope is <b>−L/τ</b>.
+                    </span>
+                  </div>
+                  <p>
+                    That slope is the answer to my second question, and I did not expect it to be
+                    this simple. Hold on to it for one more step.
+                  </p>
+                </div>
+              </div>
+
+              {/* ---------------- STEP 5 ---------------- */}
+              <div className="step">
+                <span className="step-num">5</span>
+                <div className="step-body prose">
+                  <h3 className="h3">Two lines, one peak: the fundamental diagram</h3>
+                  <p>
+                    There are two regimes. When the road is empty, nobody is following anybody, so
+                    everyone drives at the free-flow speed and <em>q = v<sub>f</sub> · k</em> — a
+                    line through the origin. When the road is full, everyone is following, and we
+                    just derived <em>q = 1/τ − (L/τ)k</em>. Draw both:
+                  </p>
+                  <div className="formula">
+                    <span className="fx">free: q = v_f · k&nbsp;&nbsp;&nbsp;&nbsp;congested: q = w · (k_j − k)</span>
+                    <span className="where">
+                      They cross at the <b>critical density</b> k<sub>c</sub> ={' '}
+                      {(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi/lane, and the height of that
+                      crossing is the <b>capacity</b> of the lane:{' '}
+                      <b>{Math.round(fd.qmax * 3600).toLocaleString()} veh/h</b>.
+                    </span>
+                  </div>
+                  <p>
+                    The shape is a triangle. The left edge is the road working; the right edge is
+                    the road failing; the peak is the best it can ever do. Everything a freeway can
+                    physically be is somewhere on those two segments.
+                  </p>
+                </div>
+              </div>
+
+              <Panel
+                title="The fundamental diagram"
+                aside={
+                  <button
+                    className="btn"
+                    style={{ padding: '3px 9px', fontSize: 12 }}
+                    onClick={() => setShowGreenshields((s) => !s)}
+                  >
+                    {showGreenshields ? 'Hide' : 'Show'} Greenshields
+                  </button>
+                }
+              >
+                <FundamentalDiagramChart
+                  params={params}
+                  stations={analysis.stations}
+                  showGreenshields={showGreenshields}
+                  chord={chordPair}
+                />
+              </Panel>
+
+              <div className="callout">
+                <div className="callout-title">A model I rejected, and why</div>
+                <p>
+                  The first model I found was Greenshields&rsquo; (1935), the dashed curve above. It
+                  assumes speed falls <em>linearly</em> with density, which makes flow a smooth
+                  parabola — much prettier than a triangle. I wanted to use it.
+                </p>
+                <p>
+                  But it predicts a capacity of{' '}
+                  <strong>
+                    {Math.round(greenshieldsCapacity(params) * 3600).toLocaleString()} veh/h per lane
+                  </strong>
+                  , and real freeway lanes measure 2,000&ndash;2,400. It is wrong by about{' '}
+                  {Math.round((greenshieldsCapacity(params) / fd.qmax - 1) * 100)}%. The triangular
+                  model is uglier, is built from a rule drivers actually follow, and lands inside
+                  the measured range. I kept the ugly one. Both are drawn above so you can judge
+                  that call yourself.
+                </p>
+              </div>
+
+              {/* ---------------- STEP 6 ---------------- */}
+              <div className="step" style={{ marginTop: 44 }}>
+                <span className="step-num">6</span>
+                <div className="step-body prose">
+                  <h3 className="h3">On this diagram, every slope is a speed</h3>
+                  <p>
+                    This is the idea that made the whole project click, and it is pure geometry.
+                    Flow is vehicles per hour; density is vehicles per mile. Divide one by the
+                    other and the vehicles cancel:
+                  </p>
+                  <div className="formula">
+                    <span className="fx">
+                      q / k = (veh/hour) / (veh/mile) = miles/hour
+                    </span>
+                  </div>
+                  <p>
+                    So any slope you can read off this chart is a <strong>velocity</strong>. Two
+                    slopes matter:
+                  </p>
+                  <ul style={{ color: 'var(--ink-secondary)', paddingLeft: 20, marginBottom: '1.1em' }}>
+                    <li style={{ marginBottom: 8 }}>
+                      <strong>From the origin to a point</strong> — the speed of the{' '}
+                      <em>cars</em> in that state. (Hover any live station on the chart above to see
+                      this line drawn.)
+                    </li>
+                    <li>
+                      <strong>The chord between two points</strong> — the speed of the{' '}
+                      <em>boundary</em> between those two states. This is the shockwave.
+                    </li>
+                  </ul>
+                  <div className="formula">
+                    <span className="fx">u = (q₂ − q₁) / (k₂ − k₁)</span>
+                    <span className="where">
+                      the slope of the chord. If it comes out <b>negative</b>, the boundary is
+                      travelling <b>upstream</b> — backwards along the freeway, against the traffic.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ---------------- STEP 7 ---------------- */}
+              <div className="step">
+                <span className="step-num">7</span>
+                <div className="step-body prose">
+                  <h3 className="h3">The answer</h3>
+                  <p>
+                    Now put the two together. When traffic runs into a dead stop, the boundary is a
+                    chord along the congested branch — and the slope of that branch is the thing we
+                    derived in step 4:
+                  </p>
+                  <div className="formula" style={{ borderLeftColor: 'var(--series-4)' }}>
+                    <span className="fx" style={{ fontSize: 21, color: 'var(--series-4)' }}>
+                      w = L / τ
+                    </span>
+                    <span className="where">
+                      = {mToFt(params.L).toFixed(1)} ft ÷ {params.tau.toFixed(2)} s ={' '}
+                      <b style={{ color: 'var(--series-4)' }}>{w.toFixed(1)} mph</b>, backwards.
+                    </span>
+                  </div>
+                  <p>
+                    Look at what is <em>not</em> in that formula. Not the freeway. Not the number of
+                    lanes. Not how many cars there are, how fast they were going, what city you are
+                    in, or what caused the jam. Only the length of a car and the reaction time of a
+                    human being.
+                  </p>
+                  <p>
+                    Which predicts something testable: stop-and-go waves should travel backwards at
+                    about the same speed <em>everywhere on Earth</em>, because cars and humans are
+                    about the same everywhere. Measurements from Los Angeles, from a Japanese test
+                    track, and from German autobahns all land between 10 and 15 mph. Ours comes out
+                    at {w.toFixed(1)}.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '40px 20px',
+                  border: '1px solid var(--hairline)',
+                  borderRadius: 'var(--r-md)',
+                  background: 'var(--surface-1)',
+                  margin: '28px 0',
+                }}
+              >
+                <div className="bignum" style={{ color: 'var(--series-4)' }}>
+                  {w.toFixed(1)}
+                  <span className="bignum-unit"> mph backwards</span>
+                </div>
+                <p className="muted" style={{ marginTop: 14, marginBottom: 0, fontSize: 14 }}>
+                  a car&rsquo;s length ÷ a driver&rsquo;s reaction time
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= VERIFICATION ================= */}
+      <section className="section">
+        <div className="wrap">
+          <div className="section-head">
+            <div className="eyebrow">Checking the answer</div>
+            <h2 className="h2">Does it actually do that?</h2>
+            <p className="lede">
+              A derivation can be internally tidy and still describe nothing. So I built a
+              simulation in which the spacing rule is the <em>only</em> instruction any driver has,
+              and then measured the waves that came out of it — without telling it what answer to
+              produce.
+            </p>
+          </div>
+
+          <div className="split split-wide-right">
+            <div className="prose">
+              <h3 className="h3">What the simulation is told</h3>
+              <p>
+                Each vehicle looks at the gap to the car ahead and drives at{' '}
+                <code>v = (s − L)/τ</code>, capped at the free-flow speed. That is the complete rule
+                set. No vehicle is told to stop, no jam is placed anywhere, and nothing in the code
+                mentions waves.
+              </p>
+              <p>
+                Press <strong>Tap the brakes</strong> and one random driver slows for two seconds,
+                then carries on normally. Watch what happens to everyone behind them.
+              </p>
+
+              <div className="row row-wrap" style={{ marginBottom: 18 }}>
+                <button className="btn btn-primary" onClick={sim.perturb}>
+                  Tap the brakes
+                </button>
+                <button className="btn" onClick={() => sim.setRunning(!sim.running)}>
+                  {sim.running ? 'Pause' : 'Play'}
+                </button>
+                <button className="btn" onClick={sim.reset}>
+                  Reset
+                </button>
+              </div>
+
+              <Slider
+                label="Density"
+                value={sim.config.perLane / (sim.config.length / 1609.344)}
+                min={8}
+                max={70}
+                step={1}
+                onChange={(perMile) =>
+                  sim.setConfig({
+                    perLane: Math.max(
+                      4,
+                      Math.round(perMile * (sim.config.length / 1609.344)),
+                    ),
+                  })
+                }
+                format={(v) => `${v.toFixed(0)} veh/mi/lane`}
+                hint={`Critical density here is ${(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)} veh/mi. Push past it and jams appear with no perturbation at all.`}
+              />
+
+              <div
+                className="dash-strip"
+                style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--hairline)' }}
+              >
+                <Stat
+                  value={w.toFixed(1)}
+                  unit="mph"
+                  label="Predicted L/τ"
+                  color="var(--series-4)"
+                />
+                <Stat
+                  value={
+                    sim.stats.measuredWaveMph === null
+                      ? '—'
+                      : Math.abs(sim.stats.measuredWaveMph).toFixed(1)
+                  }
+                  unit={sim.stats.measuredWaveMph === null ? '' : 'mph'}
+                  label="Measured in the sim"
+                  color={
+                    sim.stats.measuredWaveMph === null ? 'var(--ink-muted)' : 'var(--series-3)'
+                  }
+                  sub={sim.stats.measuredWaveMph === null ? 'no jam yet — tap the brakes' : 'backwards'}
+                />
+                <Stat
+                  value={sim.stats.meanSpeedMph.toFixed(0)}
+                  unit="mph"
+                  label="Mean speed"
+                />
+              </div>
+
+              <div className="callout" style={{ marginTop: 24 }}>
+                <div className="callout-title">The thing to notice</div>
+                <p>
+                  One driver braking for two seconds does not fade out. It <em>amplifies</em>,
+                  because every following driver needs τ seconds to respond and so brakes slightly
+                  harder than the one in front. Far enough back, somebody comes to a complete stop
+                  because of a tap on the brakes they never saw. That is the phantom jam — and it
+                  answers question 3.
+                </p>
+              </div>
+            </div>
+
+            <Panel title="Space-time diagram · the jam made visible">
+              <SpaceTimeDiagram sim={sim.sim} params={params} />
+            </Panel>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= THE WIDENING ================= */}
+      <section className="section">
+        <div className="wrap">
+          <div className="split">
+            <div className="prose">
+              <div className="eyebrow">Question 4</div>
+              <h2 className="h2">Why the $1.6 billion lane did not work</h2>
+              <p>
+                Capacity per lane is the peak of the triangle, and the peak depends on exactly three
+                things: the free-flow speed, the length of a car, and the reaction time of a driver.
+              </p>
+              <div className="formula">
+                <span className="fx">q_max = v_f · w · k_j / (v_f + w)</span>
+                <span className="where">
+                  with w = L/τ and k<sub>j</sub> = 1/L. Note what is absent: the number of lanes.
+                </span>
+              </div>
+              <p>
+                Adding a lane multiplies total throughput by 5/4. It does not raise the peak, and it
+                does nothing at all to <em>w</em> — the new lane fails in exactly the same way, at
+                exactly the same density, and its jams travel backwards at exactly the same{' '}
+                {w.toFixed(1)} mph.
+              </p>
+              <p>
+                Meanwhile the extra capacity attracts extra trips, a well-documented effect called{' '}
+                <strong>induced demand</strong>. If demand rises by more than 25%, the wider road is
+                worse than the narrow one. On the 405, it did.
+              </p>
+              <p>
+                The uncomfortable conclusion the geometry points to: the leverage is not in{' '}
+                <em>L</em>, which we cannot change much, but in <strong>τ</strong>. Drag the
+                reaction-time slider down toward 0.5 s — the figure for automated vehicle
+                following — and watch the capacity number climb. Shortening human reaction time is
+                impossible. Removing the human is not.
+              </p>
+            </div>
+
+            <div>
+              <Panel title="Capacity as a function of τ alone">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Reaction time τ</th>
+                      <th style={{ textAlign: 'right' }}>Wave speed</th>
+                      <th style={{ textAlign: 'right' }}>Capacity / lane</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[0.5, 0.9, 1.2, 1.5, 2.0, 2.5].map((tau) => {
+                      const t = fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, tau });
+                      const isNow = Math.abs(tau - params.tau) < 0.03;
+                      return (
+                        <tr
+                          key={tau}
+                          style={
+                            isNow
+                              ? { background: 'rgba(57,135,229,0.12)' }
+                              : undefined
+                          }
+                        >
+                          <td>
+                            {tau.toFixed(1)} s
+                            {tau === 0.5 && (
+                              <span className="muted" style={{ fontSize: 11.5 }}> · automated</span>
+                            )}
+                            {tau === 1.5 && (
+                              <span className="muted" style={{ fontSize: 11.5 }}> · human</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {mpsToMph(t.w).toFixed(1)} mph
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                            {Math.round(t.qmax * 3600).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 14, marginBottom: 0 }}>
+                  Cutting τ from 1.5 s to 0.5 s raises one lane&rsquo;s capacity by about{' '}
+                  {Math.round(
+                    (fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, tau: 0.5 }).qmax /
+                      fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, tau: 1.5 }).qmax -
+                      1) *
+                      100,
+                  )}
+                  % — more than adding two lanes would, and without pouring any concrete.
+                </p>
+              </Panel>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= LIMITS ================= */}
+      <section className="section">
+        <div className="wrap">
+          <div className="section-head">
+            <div className="eyebrow">Being honest</div>
+            <h2 className="h2">What this model gets wrong</h2>
+            <p className="lede">
+              A model that explains everything explains nothing. Here is where mine breaks, and what
+              I would need to fix it.
+            </p>
+          </div>
+
+          <div className="cards">
+            {[
+              {
+                t: 'Density is inferred, not measured',
+                d: 'TomTom reports speed. I invert the fundamental diagram to get density — which means I am using the model to produce the data I then test the model against. Loop-detector counts from Caltrans PeMS would break that circularity, and that is the first thing I would add.',
+              },
+              {
+                t: 'Nobody changes lanes',
+                d: 'Real drivers escape a slow lane, which both relieves and spreads congestion. My simulation has no lane changing at all, so its jams are cleaner and more regular than real ones.',
+              },
+              {
+                t: 'Every driver is identical',
+                d: 'One τ for everybody. In reality τ varies from about 0.8 s to over 2.5 s, and that variation is itself a cause of waves. A distribution of τ would make the model messier and more realistic.',
+              },
+              {
+                t: 'The road is a loop',
+                d: 'The simulation runs on a closed circuit so that traffic is conserved and nothing has to be invented at the boundaries. A real corridor has on-ramps and off-ramps injecting and removing demand.',
+              },
+              {
+                t: 'The triangle has sharp corners',
+                d: 'Real measured data scatters into a cloud around the peak rather than meeting at a point, partly because capacity itself drops once a queue forms — an effect called capacity drop that this model does not include.',
+              },
+              {
+                t: 'Grades are a fudge',
+                d: 'I model the Sepulveda climb as a zone of reduced free-flow speed. In reality it is heavy vehicles losing power on a 4% grade, which is a different mechanism that happens to look similar.',
+              },
+            ].map((c) => (
+              <Panel key={c.t}>
+                <strong style={{ fontSize: 14.5, display: 'block', marginBottom: 8 }}>{c.t}</strong>
+                <p style={{ margin: 0, fontSize: 13.5 }}>{c.d}</p>
+              </Panel>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
