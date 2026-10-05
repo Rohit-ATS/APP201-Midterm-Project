@@ -73,14 +73,14 @@ export function Overview({
               <Stat
                 value={w.toFixed(1)}
                 unit="mph"
-                label="Backward wave speed"
+                label="How fast the jam goes backwards"
                 color="var(--series-4)"
                 sub="= L / τ"
               />
               <Stat
                 value={mpsToMph(analysis.meanSpeed).toFixed(0)}
                 unit="mph"
-                label="Corridor mean, now"
+                label="Street average, now"
                 color="var(--series-1)"
               />
               <Stat
@@ -91,8 +91,60 @@ export function Overview({
               />
               <Stat
                 value={Math.round(analysis.vehiclesOnRoad).toLocaleString()}
-                label="Vehicles on the street"
+                label="Cars on the street right now"
               />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= WHAT THIS IS ================= */}
+      <section className="section" style={{ paddingTop: 72, paddingBottom: 72 }}>
+        <div className="wrap">
+          <div className="split">
+            <div className="prose">
+              <div className="eyebrow">What this is</div>
+              <h2 className="h2">A question I had, and where it went</h2>
+              <p style={{ fontSize: '1.08rem' }}>
+                I kept noticing something at a traffic light and wanted to know why it happens. This
+                site is me finding out. It turned out to have a clean answer, and the answer is
+                geometry — a straight line, a triangle, and a slope.
+              </p>
+              <p>
+                There is nothing here you need a background for. If you can read a graph and divide
+                one number by another, you can follow every step. I have tried not to skip the parts
+                where I was confused.
+              </p>
+            </div>
+            <div className="cards" style={{ gridTemplateColumns: '1fr' }}>
+              <Panel>
+                <strong style={{ display: 'block', marginBottom: 6 }}>Three things to look at</strong>
+                <ol
+                  style={{
+                    margin: 0,
+                    paddingLeft: 20,
+                    color: 'var(--ink-secondary)',
+                    fontSize: 14,
+                    lineHeight: 1.75,
+                  }}
+                >
+                  <li>
+                    <strong>Live Street</strong> — real traffic on a real street, moving at real
+                    speed. Click any car and it shows you its own sum.
+                  </li>
+                  <li>
+                    <strong>The Mathematics</strong> — the whole thing worked out, one step at a
+                    time, with sliders you can move.
+                  </li>
+                  <li>
+                    <strong>The Creation</strong> — a woven picture made out of the traffic itself.
+                  </li>
+                </ol>
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 14, marginBottom: 0 }}>
+                  Everything you see is built from live traffic data and real maps of downtown Los
+                  Angeles.
+                </p>
+              </Panel>
             </div>
           </div>
         </div>
@@ -186,7 +238,7 @@ export function Overview({
             </div>
 
             <div>
-              <Panel title="Visual evidence · the street right now">
+              <Panel title="What it looks like right now">
                 <CorridorProfile analysis={analysis} />
               </Panel>
 
