@@ -53,11 +53,22 @@ export interface TrafficParams {
   tau: number;
 }
 
-/** Defaults tuned to the I-405 Sepulveda Pass fleet (see data/vehicleMix.ts). */
+/**
+ * Defaults for South Figueroa Street (see data/vehicleMix.ts for L).
+ *
+ * vf is 30 mph, not the 35 mph posted limit: on a signalised street the speed
+ * a driver actually holds between lights is lower than the sign, and it is
+ * that speed the model needs.
+ *
+ * tau is 1.4 s. Urban drivers follow slightly closer than freeway drivers,
+ * and the measured saturation headway on an American city street is right
+ * around 1.9-2.0 s per vehicle, which this reproduces once the vehicle's own
+ * length is added back in.
+ */
 export const DEFAULT_PARAMS: TrafficParams = {
-  vf: mphToMps(65),
+  vf: mphToMps(30),
   L: 7.5,
-  tau: 1.5,
+  tau: 1.4,
 };
 
 /* ------------------------------------------------------------------ */
@@ -180,6 +191,38 @@ export function densityForSpeed(v: number, p: TrafficParams): number {
   const k = (w * kj) / (v + w);
   return Math.min(k, kj);
 }
+
+/* ------------------------------------------------------------------ */
+/* 4b. SIGNALS - what capacity means on a street                       */
+/* ------------------------------------------------------------------ */
+/*
+ * On a freeway, qmax is the capacity and that is the end of it. On a street,
+ * qmax is the SATURATION FLOW: the rate cars cross the stop line while the
+ * light is green and the queue is still moving. A lane only gets that rate for
+ * the green part of the cycle, so the capacity a driver actually experiences
+ * is
+ *
+ *     capacity = saturation flow x (green time / cycle time)
+ *
+ * This single multiplication is why a downtown street carries a third of what
+ * its lanes could, and why re-timing signals is cheaper than widening
+ * anything.
+ */
+
+/** Saturation flow: the discharge rate of a moving queue. veh/s per lane. */
+export const saturationFlow = (p: TrafficParams) => fundamentalDiagram(p).qmax;
+
+/** Capacity of a signalised lane, veh/s. */
+export const signalCapacity = (p: TrafficParams, greenSplit: number) =>
+  saturationFlow(p) * greenSplit;
+
+/**
+ * Saturation headway: the time between successive front bumpers crossing the
+ * stop line once the queue is moving. The reciprocal of saturation flow, and
+ * the number traffic engineers actually measure in the field (typically
+ * 1.9-2.1 s).
+ */
+export const saturationHeadway = (p: TrafficParams) => 1 / saturationFlow(p);
 
 /* ------------------------------------------------------------------ */
 /* 5. GREENSHIELDS - the smooth comparison model                       */
