@@ -1,99 +1,148 @@
 /**
  * corridor.ts
  * ---------------------------------------------------------------------------
- * The study site: Interstate 405 southbound, through the Sepulveda Pass.
+ * The study site: South Figueroa Street, downtown Los Angeles.
  *
- * From the US-101 interchange in Sherman Oaks, over the Santa Monica
- * Mountains, down to Wilshire Boulevard in Westwood — about 7 miles.
+ * Southbound from 3rd Street, through the Financial District, past Wilshire
+ * and 7th, down to 11th. Just over a mile.
  *
- * This is the most congested stretch of freeway in the United States, and it
- * is the stretch Los Angeles spent $1.6 billion widening between 2009 and
- * 2014. Afterwards, peak travel times got slightly WORSE. Section 2 of the
- * site explains why that outcome is predicted by the geometry rather than
- * being a surprise.
+ * WHY THIS STREET
  *
- * Each point is a real interchange, so the measurement stations the traffic
- * API returns can be anchored to places a person can actually picture.
+ * Figueroa runs at the foot of the tallest buildings in the western United
+ * States — the Wilshire Grand at 335 m and the US Bank Tower at 310 m are both
+ * on it, and the 3D scene renders their real footprints. All of that floor
+ * space empties onto this street twice a day, through ten signalised
+ * intersections in a single mile.
+ *
+ * It is also the better street for the mathematics. On a freeway you have to
+ * wait for a jam to happen. Here one is manufactured every ninety seconds by a
+ * red light, which means the backward wave the whole project is about can be
+ * watched on demand instead of hoped for.
+ *
+ * WHERE THE GEOMETRY COMES FROM
+ *
+ * The centreline is the real OpenStreetMap geometry of South Figueroa Street
+ * (see scripts/build-street.mjs), not an estimate. The first version of this
+ * file used hand-placed intersection coordinates and they were out by up to
+ * 85 m, which does not sound like much until the roadway is running through
+ * the lobby of the Wilshire Grand. Since the buildings are real OSM data, the
+ * street has to be too.
+ *
+ * The named intersections below are then SNAPPED onto that centreline by
+ * latitude, so their positions are the street's own, not mine.
  */
 
-export interface CorridorPoint {
-  /** short label shown on the map and axis */
+import { project, measure, type LatLon, type PolyPoint } from '../lib/geo';
+import streetData from './street.json';
+
+/** The real centreline, north to south, as [lat, lon] pairs. */
+const STREET_POINTS = streetData.points as Array<[number, number]>;
+
+/** The centreline in local metres, with cumulative arc length. */
+export const CENTERLINE: PolyPoint[] = measure(
+  STREET_POINTS.map(([lat, lon]) => project(lat, lon)),
+);
+
+export const CORRIDOR_LENGTH = CENTERLINE[CENTERLINE.length - 1].s;
+
+export interface CorridorPoint extends LatLon {
+  /** cross street name */
   name: string;
-  lat: number;
-  lon: number;
-  /** cumulative distance from the north end, metres (computed below) */
+  /** distance from the north end along the real street, metres */
   offset: number;
+  /** signal cycle length, seconds */
+  cycle: number;
+  /** fraction of the cycle that is green for Figueroa */
+  greenSplit: number;
+  /** offset into the cycle when this signal turns green, seconds */
+  phase: number;
+  note: string;
 }
 
-/** Number of through lanes (excluding the HOV lane) at each point. */
+/**
+ * The intersections. Latitudes are the anchor — Figueroa is monotonic in
+ * latitude over this stretch, so each cross street is placed by finding the
+ * point on the real centreline at that latitude. Longitude and arc position
+ * then come from the street itself.
+ *
+ * Signal timing is modelled on LADOT's downtown grid: 90-second cycles on an
+ * offset progression intended to give southbound traffic a green wave.
+ */
+const SPEC: Array<{
+  name: string;
+  lat: number;
+  cycle: number;
+  greenSplit: number;
+  phase: number;
+  note: string;
+}> = [
+  { name: 'W 3rd St',      lat: 34.0551, cycle: 90, greenSplit: 0.52, phase: 0,  note: 'Top of the corridor, below the Bunker Hill towers.' },
+  { name: 'W 4th St',      lat: 34.0538, cycle: 90, greenSplit: 0.50, phase: 8,  note: 'Harbor Freeway ramps pull a lane of traffic out here.' },
+  { name: 'W 5th St',      lat: 34.0524, cycle: 90, greenSplit: 0.48, phase: 16, note: 'The US Bank Tower stands over the east side of this block.' },
+  { name: 'W 6th St',      lat: 34.0510, cycle: 90, greenSplit: 0.48, phase: 24, note: 'Gas Company Tower and 777 Tower either side.' },
+  { name: 'Wilshire Blvd', lat: 34.0500, cycle: 90, greenSplit: 0.42, phase: 30, note: 'The Wilshire Grand, tallest in the west. Shortest green on the corridor.' },
+  { name: 'W 7th St',      lat: 34.0488, cycle: 90, greenSplit: 0.44, phase: 38, note: 'Busiest pedestrian crossing downtown; the metro station is beneath it.' },
+  { name: 'W 8th St',      lat: 34.0475, cycle: 90, greenSplit: 0.50, phase: 46, note: 'Approach to the convention district.' },
+  { name: 'W 9th St',      lat: 34.0461, cycle: 90, greenSplit: 0.50, phase: 54, note: 'Oceanwide Plaza on the west side.' },
+  { name: 'Olympic Blvd',  lat: 34.0447, cycle: 90, greenSplit: 0.40, phase: 62, note: 'Arena traffic merges here. The corridor bottleneck.' },
+  { name: 'W 11th St',     lat: 34.0437, cycle: 90, greenSplit: 0.52, phase: 70, note: 'Bottom of the study corridor.' },
+];
+
+/** Snap a latitude onto the real centreline, returning its index. */
+function indexAtLatitude(lat: number): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < STREET_POINTS.length; i++) {
+    const d = Math.abs(STREET_POINTS[i][0] - lat);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+export const CORRIDOR: CorridorPoint[] = SPEC.map((spec) => {
+  const i = indexAtLatitude(spec.lat);
+  const [lat, lon] = STREET_POINTS[i];
+  return {
+    name: spec.name,
+    lat,
+    lon,
+    offset: CENTERLINE[i].s,
+    cycle: spec.cycle,
+    greenSplit: spec.greenSplit,
+    phase: spec.phase,
+    note: spec.note,
+  };
+});
+
+/**
+ * Through lanes southbound, block by block.
+ *
+ * OSM tags this street at 4 to 7 lanes, but those counts include turn pockets
+ * and the parking lane. The numbers here are the THROUGH lanes a driver can
+ * actually keep moving in, which is what the capacity arithmetic needs.
+ */
 export interface CorridorSegment {
   from: string;
   to: string;
   lanes: number;
-  /** length in metres */
   length: number;
-  /** a note explaining the geometry of this segment */
   note: string;
 }
 
-const RAW: Array<Omit<CorridorPoint, 'offset'>> = [
-  { name: 'US-101',        lat: 34.1595, lon: -118.4675 },
-  { name: 'Ventura Blvd',  lat: 34.1540, lon: -118.4690 },
-  { name: 'Valley Vista',  lat: 34.1460, lon: -118.4725 },
-  { name: 'Mulholland Dr', lat: 34.1310, lon: -118.4780 },
-  { name: 'Skirball Ctr',  lat: 34.1140, lon: -118.4780 },
-  { name: 'Getty Center',  lat: 34.0885, lon: -118.4745 },
-  { name: 'Moraga Dr',     lat: 34.0800, lon: -118.4740 },
-  { name: 'Sunset Blvd',   lat: 34.0735, lon: -118.4715 },
-  { name: 'Montana Ave',   lat: 34.0640, lon: -118.4700 },
-  { name: 'Wilshire Blvd', lat: 34.0570, lon: -118.4690 },
-];
-
-/** Great-circle distance between two lat/lon points, in metres. */
-export function haversine(
-  a: { lat: number; lon: number },
-  b: { lat: number; lon: number },
-): number {
-  const R = 6371008.8; // mean Earth radius, m
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const la1 = toRad(a.lat);
-  const la2 = toRad(b.lat);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-/** The corridor, with cumulative offsets filled in. */
-export const CORRIDOR: CorridorPoint[] = (() => {
-  let acc = 0;
-  return RAW.map((p, i) => {
-    if (i > 0) acc += haversine(RAW[i - 1], p);
-    return { ...p, offset: acc };
-  });
-})();
-
-/** Total corridor length, metres. */
-export const CORRIDOR_LENGTH = CORRIDOR[CORRIDOR.length - 1].offset;
-
-/**
- * Lane counts, southbound, as built after the 2014 widening project.
- * The pass itself narrows — that narrowing is the bottleneck, and the
- * bottleneck is where the jam is born.
- */
 export const SEGMENTS: CorridorSegment[] = (() => {
   const spec: Array<[string, string, number, string]> = [
-    ['US-101', 'Ventura Blvd', 5, 'Merge from the 101 adds a full freeway worth of demand in under a mile.'],
-    ['Ventura Blvd', 'Valley Vista', 5, 'Last flat section before the climb.'],
-    ['Valley Vista', 'Mulholland Dr', 4, 'The climb begins; a lane drops. Capacity falls by a fifth here.'],
-    ['Mulholland Dr', 'Skirball Ctr', 4, 'Steepest grade. Heavy vehicles lose speed, forcing lane changes.'],
-    ['Skirball Ctr', 'Getty Center', 4, 'Crest of the pass — the geometric bottleneck of the whole corridor.'],
-    ['Getty Center', 'Moraga Dr', 5, 'Descending; a lane returns, but the queue upstream has already formed.'],
-    ['Moraga Dr', 'Sunset Blvd', 5, 'Sunset on-ramp injects demand into a recovering stream.'],
-    ['Sunset Blvd', 'Montana Ave', 5, 'Flat, straight, and the fastest section on a good day.'],
-    ['Montana Ave', 'Wilshire Blvd', 5, 'Approach to the Wilshire interchange and the Westwood off-ramps.'],
+    ['W 3rd St', 'W 4th St', 4, 'Four through lanes leaving Bunker Hill.'],
+    ['W 4th St', 'W 5th St', 4, 'Freeway ramps bleed off a lane of demand.'],
+    ['W 5th St', 'W 6th St', 4, 'The Financial District core.'],
+    ['W 6th St', 'Wilshire Blvd', 4, 'Approach to the shortest green on the street.'],
+    ['Wilshire Blvd', 'W 7th St', 3, 'A lane is lost to the bus stop and turn pocket.'],
+    ['W 7th St', 'W 8th St', 3, 'Heaviest pedestrian interference of the corridor.'],
+    ['W 8th St', 'W 9th St', 3, 'Recovering, but the queue from Olympic reaches back to here.'],
+    ['W 9th St', 'Olympic Blvd', 3, 'The bottleneck approach.'],
+    ['Olympic Blvd', 'W 11th St', 4, 'Opens out again past the arena turn.'],
   ];
   return spec.map(([from, to, lanes, note]) => {
     const a = CORRIDOR.find((p) => p.name === from)!;
@@ -102,18 +151,11 @@ export const SEGMENTS: CorridorSegment[] = (() => {
   });
 })();
 
-/** The bottleneck segment — where capacity is lowest. */
-export const BOTTLENECK = 'Skirball Ctr';
+/** Where capacity is lowest — the signal that sets the corridor's throughput. */
+export const BOTTLENECK = 'Olympic Blvd';
 
-/**
- * Bounding box for the TomTom Flow Segment queries: we sample the API at each
- * corridor point rather than requesting one average for the whole stretch,
- * because a single average would hide exactly the thing we are looking for —
- * the DIFFERENCE between neighbouring sections, which is what makes a wave.
- */
-export const CORRIDOR_BBOX = {
-  minLat: Math.min(...RAW.map((p) => p.lat)),
-  maxLat: Math.max(...RAW.map((p) => p.lat)),
-  minLon: Math.min(...RAW.map((p) => p.lon)),
-  maxLon: Math.max(...RAW.map((p) => p.lon)),
-};
+/** Lane count used by the simulation. */
+export const LANES = 3;
+
+export const CORRIDOR_NAME = 'S Figueroa St';
+export const CORRIDOR_SUBTITLE = 'Downtown Los Angeles · 3rd to 11th';
