@@ -1,51 +1,30 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { VehicleClass } from '../../data/vehicleMix';
+import type { Local } from '../../lib/geo';
 
 /* ===================================================================== */
 /* THE ROAD                                                              */
 /* ===================================================================== */
 /*
- * The simulation runs on a loop of a fixed length, so the road is modelled as
- * a CLOSED curve of exactly that length. Nothing teleports: a car that leaves
- * the bottom of the pass genuinely comes back around. The shape is a long,
- * lazy kidney, which reads as a stretch of freeway from any normal camera
- * angle while still closing on itself.
+ * The street is not drawn. It is BUILT FROM THE GPS TRACE that TomTom returns
+ * alongside each traffic reading: typically several hundred real latitude and
+ * longitude points along South Figueroa, projected into the same metre grid as
+ * the OpenStreetMap building footprints.
+ *
+ * That shared frame is the whole reason the scene is worth looking at. The
+ * cars pass the real towers at the real distances, because the road and the
+ * buildings were measured by different people in different decades and still
+ * agree to within a metre or two.
+ *
+ * The curve is OPEN, not a loop: the corridor has a top at 3rd Street and a
+ * bottom at 11th. Vehicles that run off the bottom re-enter at the top, which
+ * is a fiction, but it happens 800 m from the camera inside the fog.
  */
 
-/** Build a closed curve whose arc length is approximately `length` metres. */
-export function buildRoadCurve(length: number): THREE.CatmullRomCurve3 {
-  // A kidney/peanut outline in plan view, with gentle elevation change to
-  // suggest the climb over the pass.
-  const shape: Array<[number, number, number]> = [
-    [0, 0, -1],
-    [0.62, 0.1, -0.78],
-    [0.95, 0.26, -0.22],
-    [0.88, 0.34, 0.36],
-    [0.46, 0.3, 0.78],
-    [-0.1, 0.16, 0.95],
-    [-0.62, 0.05, 0.72],
-    [-0.95, 0.0, 0.16],
-    [-0.74, 0.02, -0.48],
-    [-0.3, 0.0, -0.9],
-  ];
-
-  const unit = new THREE.CatmullRomCurve3(
-    shape.map(([x, y, z]) => new THREE.Vector3(x, y, z)),
-    true,
-    'catmullrom',
-    0.5,
-  );
-
-  const unitLength = unit.getLength();
-  const scale = length / unitLength;
-
-  return new THREE.CatmullRomCurve3(
-    shape.map(([x, y, z]) => new THREE.Vector3(x * scale, y * scale * 0.09, z * scale)),
-    true,
-    'catmullrom',
-    0.5,
-  );
+export function buildRoadCurve(points: Local[]): THREE.CatmullRomCurve3 {
+  const pts = points.map((p) => new THREE.Vector3(p.x, 0, p.z));
+  return new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
 }
 
 export interface RoadFrame {
@@ -65,7 +44,11 @@ export function frameAt(
   lateral: number,
   out: RoadFrame,
 ): RoadFrame {
-  const t = ((s % totalLength) + totalLength) / totalLength % 1;
+  // The simulation measures position as arc length down the corridor; the
+  // curve is parameterised 0..1. One division keeps the two in step, and
+  // clamping stops a vehicle at the very end of the street from sampling off
+  // the end of the curve.
+  const t = Math.max(0, Math.min(1, s / totalLength));
   curve.getPointAt(t, out.position);
   curve.getTangentAt(t, out.tangent);
   // sideways direction: tangent crossed with world up
@@ -97,8 +80,8 @@ export function buildRoadSurface(
 
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
-    curve.getPointAt(t % 1, p);
-    curve.getTangentAt(t % 1, tan);
+    curve.getPointAt(t, p);
+    curve.getTangentAt(t, tan);
     nor.copy(up).cross(tan).normalize();
 
     positions.push(
