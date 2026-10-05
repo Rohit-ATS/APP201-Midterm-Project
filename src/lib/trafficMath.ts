@@ -224,6 +224,50 @@ export const signalCapacity = (p: TrafficParams, greenSplit: number) =>
  */
 export const saturationHeadway = (p: TrafficParams) => 1 / saturationFlow(p);
 
+/**
+ * STARTUP LOST TIME, seconds.
+ *
+ * The first few drivers in a queue do not move the instant the light turns
+ * green. The front car reacts, then the second, then the third, and the
+ * headways only settle down to the saturation value from roughly the fourth
+ * vehicle onward. The time thrown away at the front of every green is about
+ * two seconds, and it is thrown away once per cycle whether the green is long
+ * or short - which is why short greens are so much worse than their length
+ * suggests.
+ */
+export const STARTUP_LOST_TIME = 2.0;
+
+/**
+ * HOW MANY CARS GET THROUGH ON ONE GREEN - the question this project started
+ * from.
+ *
+ *     n = (green time - startup lost time) / saturation headway
+ *
+ * Stand at a signal and count. If the queue in your lane is longer than n,
+ * the cars past that point are not getting through this cycle; they wait for
+ * the next one. Traffic engineers call that a CYCLE FAILURE, and it is the
+ * difference between "I made the light" and "I sat through it twice".
+ *
+ * Returns vehicles per lane, per green.
+ */
+export function vehiclesPerGreen(
+  p: TrafficParams,
+  greenSplit: number,
+  cycle: number,
+): number {
+  const green = greenSplit * cycle;
+  const usable = Math.max(0, green - STARTUP_LOST_TIME);
+  return usable / saturationHeadway(p);
+}
+
+/**
+ * The queue length, in vehicles per lane, at which a signal starts failing -
+ * i.e. the number of cars that can be waiting and still all clear on one
+ * green. Identical to vehiclesPerGreen; named separately because the two
+ * questions read differently to a reader.
+ */
+export const cycleFailureThreshold = vehiclesPerGreen;
+
 /* ------------------------------------------------------------------ */
 /* 5. GREENSHIELDS - the smooth comparison model                       */
 /* ------------------------------------------------------------------ */

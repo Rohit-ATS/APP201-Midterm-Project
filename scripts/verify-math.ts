@@ -28,6 +28,7 @@ import {
   saturationFlow,
   saturationHeadway,
   signalCapacity,
+  vehiclesPerGreen,
   mpsToMph,
   mphToMps,
   mToFt,
@@ -77,6 +78,11 @@ check('saturation headway (s)', saturationHeadway(p), 1.959, 0.01, 'field: 1.9-2
 
 // 5. Capacity of a signalised lane = saturation flow x green ratio.
 check('signal capacity @ 45% green (veh/h)', signalCapacity(p, 0.45) * 3600, 826.9, 2, 'typical arterial');
+
+// 5b. Cars clearing one green — the question the project started from, and the
+//     one you can check by standing at the intersection and counting.
+check('cars per green @ Wilshire (per lane)', vehiclesPerGreen(p, 0.42, 90), 18.26, 0.05, 'cycle failure above this');
+check('cars per green @ 3rd (per lane)', vehiclesPerGreen(p, 0.52, 90), 22.88, 0.05, 'longer green, more cars');
 
 // 6. Critical density — where the two branches cross.
 check('critical density kc (veh/mile/lane)', fd.kc * VEHPM_TO_VEHPMI, 61.3, 0.5);
