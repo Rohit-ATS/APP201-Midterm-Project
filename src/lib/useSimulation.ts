@@ -4,6 +4,10 @@ import { type TrafficParams, mpsToMph } from './trafficMath';
 
 export interface SimStats {
   meanSpeedMph: number;
+  /** the live mean the loop is calibrating toward, mph (null when free) */
+  targetMph: number | null;
+  /** the cruise-speed multiplier the loop has settled on */
+  speedScale: number;
   densityPerMile: number;
   flowPerHour: number;
   /** measured backward wave speed, mph (negative = upstream). null if no jam */
@@ -21,6 +25,8 @@ export interface SimulationHook {
   setConfig: (patch: Partial<SimConfig>) => void;
   perturb: () => void;
   reset: () => void;
+  /** tell the loop what mean speed, in mph, the street is actually doing */
+  setTargetMeanMph: (mph: number | null) => void;
   /** monotonically increasing frame counter — subscribe to force a redraw */
   frame: number;
 }
@@ -37,10 +43,16 @@ const PHYSICS_DT = 0.05; // s — small enough to stay well inside tau
 export function useSimulation(params: TrafficParams): SimulationHook {
   const [config, setConfigState] = useState<SimConfig>(DEFAULT_SIM);
   const [running, setRunning] = useState(true);
-  const [speed, setSpeed] = useState(3);
+  // 1 = real time. The simulation used to run at 3x, which made the traffic
+  // look like a time-lapse and made the geometry impossible to talk through:
+  // you cannot point at a wave travelling 12 mph backwards if the clock is
+  // lying by a factor of three.
+  const [speed, setSpeed] = useState(1);
   const [frame, setFrame] = useState(0);
   const [stats, setStats] = useState<SimStats>({
     meanSpeedMph: 0,
+    targetMph: null,
+    speedScale: 1.6,
     densityPerMile: 0,
     flowPerHour: 0,
     measuredWaveMph: null,
@@ -65,6 +77,7 @@ export function useSimulation(params: TrafficParams): SimulationHook {
   // ---- the loop --------------------------------------------------------
   const frontRef = useRef<{ x: number; t: number } | null>(null);
   const waveRef = useRef<number | null>(null);
+  const targetRef = useRef<number | null>(null);
 
   useEffect(() => {
     let raf = 0;
@@ -110,8 +123,21 @@ export function useSimulation(params: TrafficParams): SimulationHook {
       statsAcc += realDt;
       if (statsAcc > 0.25) {
         statsAcc = 0;
+
+        // ---- calibration ------------------------------------------------
+        // Nudge the cruise-speed scale until the simulated mean matches the
+        // mean TomTom measured. Gentle gain: this should settle over a few
+        // seconds, not chase every fluctuation in the feed.
+        const target = targetRef.current;
+        if (target !== null && target > 0.5 && sim.speedProfile.length) {
+          const err = target - mpsToMph(sim.meanSpeed());
+          sim.speedScale = Math.max(0.6, Math.min(4.5, sim.speedScale + err * 0.016));
+        }
+
         setStats({
           meanSpeedMph: mpsToMph(sim.meanSpeed()),
+          targetMph: targetRef.current,
+          speedScale: sim.speedScale,
           densityPerMile: sim.density() * 1609.344,
           flowPerHour: sim.flow() * 3600,
           measuredWaveMph: waveRef.current === null ? null : mpsToMph(waveRef.current),
@@ -135,6 +161,10 @@ export function useSimulation(params: TrafficParams): SimulationHook {
 
   const perturb = useCallback(() => sim.perturb(), [sim]);
 
+  const setTargetMeanMph = useCallback((mph: number | null) => {
+    targetRef.current = mph;
+  }, []);
+
   const reset = useCallback(() => {
     sim.reset();
     waveRef.current = null;
@@ -152,6 +182,7 @@ export function useSimulation(params: TrafficParams): SimulationHook {
     setConfig,
     perturb,
     reset,
+    setTargetMeanMph,
     frame,
   };
 }

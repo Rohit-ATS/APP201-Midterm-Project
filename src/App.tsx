@@ -25,6 +25,21 @@ export default function App() {
   const traffic = useTraffic();
   const sim = useSimulation(traffic.params);
 
+  // Hand the live per-block speeds to the simulation, so the traffic on screen
+  // moves at the speed the traffic on Figueroa is moving. This lives here
+  // rather than in one section so every view shares it.
+  const { stations } = traffic.analysis;
+  const simObject = sim.sim;
+  useEffect(() => {
+    simObject.speedProfile = stations.map((st) => ({ s: st.offset, vf: st.vf }));
+  }, [simObject, stations]);
+
+  const liveMeanMph = mpsToMph(traffic.analysis.meanSpeed);
+  const { setTargetMeanMph } = sim;
+  useEffect(() => {
+    setTargetMeanMph(liveMeanMph);
+  }, [setTargetMeanMph, liveMeanMph]);
+
   const [view, setView] = useState<ViewId>(() => {
     const h = window.location.hash.replace('#', '');
     return isView(h) ? h : 'overview';

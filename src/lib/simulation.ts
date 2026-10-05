@@ -109,6 +109,37 @@ export class Simulation {
   config: SimConfig;
   params: TrafficParams;
 
+  /**
+   * The live speed profile: the free-flow speed TomTom reports for each point
+   * along the street, in m/s, by distance from the north end.
+   *
+   * This is what makes the traffic on screen move at the speed the traffic on
+   * Figueroa is actually moving. Without it every driver aims for the model's
+   * nominal 30 mph everywhere, which is both too fast and the same everywhere
+   * — and a street whose whole subject is that neighbouring blocks differ
+   * cannot afford to be uniform.
+   */
+  speedProfile: Array<{ s: number; vf: number }> = [];
+
+  /**
+   * Multiplier on the live profile, set by the calibration loop in
+   * useSimulation.
+   *
+   * It exists because TomTom's "free flow speed" for a city street is a LINK
+   * speed: the time to get from one end of a block to the other when traffic
+   * is light, which already includes some waiting at the light. Feeding that
+   * straight in as a cruising speed and then stopping cars at red lights on
+   * top of it counts the signal delay twice, and the traffic comes out about
+   * half as fast as the street really runs.
+   *
+   * Rather than guess a correction factor, the loop solves for it: it nudges
+   * this scale until the simulated mean speed matches the mean speed TomTom
+   * measured. What it converges to is the cruising speed between lights that
+   * reproduces the observed journey — which is a quantity the API never
+   * reports and the model can recover.
+   */
+  speedScale = 1.6;
+
   constructor(config: SimConfig, params: TrafficParams) {
     this.config = config;
     this.params = params;
@@ -128,7 +159,7 @@ export class Simulation {
         this.vehicles.push({
           id: id++,
           x: (i * spacing + jitter + lane * 5 + length) % length,
-          v: this.params.vf * (0.6 + Math.random() * 0.4),
+          v: this.freeSpeedAt((i * spacing + lane * 5) % length) * (0.6 + Math.random() * 0.4),
           lane,
           cls,
           L: cls.length + STOPPED_GAP,
@@ -149,6 +180,24 @@ export class Simulation {
 
   private sort() {
     this.vehicles.sort((a, b) => a.lane - b.lane || a.x - b.x);
+  }
+
+  /** Free-flow speed at a position, interpolated from the live profile. */
+  freeSpeedAt(x: number): number {
+    const p = this.speedProfile;
+    if (!p.length) return this.params.vf;
+    const k = this.speedScale;
+    if (x <= p[0].s) return p[0].vf * k;
+    const last = p[p.length - 1];
+    if (x >= last.s) return last.vf * k;
+    for (let i = 0; i < p.length - 1; i++) {
+      if (x <= p[i + 1].s) {
+        const span = p[i + 1].s - p[i].s || 1;
+        const t = (x - p[i].s) / span;
+        return (p[i].vf + (p[i + 1].vf - p[i].vf) * t) * k;
+      }
+    }
+    return last.vf * k;
   }
 
   updateSignals() {
@@ -235,7 +284,7 @@ export class Simulation {
       const red = this.distanceToRed(veh.x);
       const vSignal = red ? red.d / tau : Infinity;
 
-      const vFree = this.params.vf;
+      const vFree = this.freeSpeedAt(veh.x);
       let vTarget = Math.max(0, Math.min(vFree, vLeader, vSignal));
 
       let limitedBy: SimVehicle['limitedBy'] =
