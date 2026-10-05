@@ -10,7 +10,7 @@ import { BOTTLENECK, CORRIDOR_LENGTH } from '../../data/corridor';
  * Speed against distance down the street, right now.
  *
  * This is the chart that shows the asymmetry a single average would hide.
- * Upstream of the Skirball crest the line is on the floor. Downstream it
+ * Upstream of the Olympic bottleneck the line is on the floor. Downstream it
  * climbs. Cars are leaving the bottleneck faster than they are arriving at it,
  * so the queue has to grow backwards — and the arrows below the axis show
  * which way each boundary is actually moving.
@@ -30,8 +30,17 @@ export function CorridorProfile({
   // reserves more bottom margin than the shared default.
   const bottom = M.bottom + 26;
   const baseline = h - bottom;
+
+  // Scale to the street, not to a freeway. The axis used to run to 75 mph with
+  // a "free flow" line pinned at 65, which is an Interstate's numbers on a
+  // road where TomTom reports free flow in the high teens.
+  const freeFlowMph =
+    analysis.stations.reduce((sum, s) => sum + mpsToMph(s.vf), 0) /
+    Math.max(1, analysis.stations.length);
+  const topMph = Math.max(20, Math.ceil((freeFlowMph * 1.35) / 5) * 5);
+
   const x = linear([0, miles], [M.left, w - M.right]);
-  const y = linear([0, 75], [baseline, M.top]);
+  const y = linear([0, topMph], [baseline, M.top]);
 
   const pts = analysis.stations.map((s) => ({
     mi: s.offset / 1609.344,
@@ -82,15 +91,21 @@ export function CorridorProfile({
           <line
             x1={M.left}
             x2={w - M.right}
-            y1={y(65)}
-            y2={y(65)}
+            y1={y(freeFlowMph)}
+            y2={y(freeFlowMph)}
             stroke="var(--series-3)"
             strokeWidth={1}
             strokeDasharray="2 4"
             opacity={0.6}
           />
-          <text className="chart-tick" x={w - M.right - 2} y={y(65) - 5} textAnchor="end" fill="var(--series-3)">
-            free flow
+          <text
+            className="chart-tick"
+            x={w - M.right - 2}
+            y={y(freeFlowMph) - 5}
+            textAnchor="end"
+            fill="var(--series-3)"
+          >
+            free flow · {freeFlowMph.toFixed(0)} mph
           </text>
 
           {/* the bottleneck band */}
@@ -112,7 +127,7 @@ export function CorridorProfile({
                 fill="var(--series-4)"
                 style={{ fontWeight: 700 }}
               >
-                crest
+                bottleneck
               </text>
             </g>
           )}

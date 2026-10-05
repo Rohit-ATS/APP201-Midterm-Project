@@ -278,6 +278,13 @@ export function LiveCorridor({
                 >
                   Inspect a car
                 </button>
+                <div className="seg" title="Simulation clock rate">
+                  {[0.25, 0.5, 1, 2].map((r) => (
+                    <button key={r} data-on={sim.speed === r} onClick={() => sim.setSpeed(r)}>
+                      {r === 1 ? 'Real time' : `${r}×`}
+                    </button>
+                  ))}
+                </div>
                 <button className="btn" onClick={() => sim.setRunning(!sim.running)}>
                   {sim.running ? 'Pause' : 'Play'}
                 </button>
@@ -286,10 +293,13 @@ export function LiveCorridor({
                 </button>
               </div>
               <p className="muted" style={{ fontSize: 11.5, margin: '10px 2px 0', lineHeight: 1.5 }}>
-                Real street, real buildings, real signal timing. Every vehicle obeys{' '}
-                <code>v = (s − L)/τ</code> and nothing else — a red light is just a stopped car of
-                zero length on the stop line. Vehicle types are drawn from the real downtown fleet,
-                because a traffic API reports how fast vehicles move but never what they are.
+                Real street, real buildings, real signal timing, and the clock runs at{' '}
+                <strong>real time</strong> — a car doing {mpsToMph(analysis.meanSpeed).toFixed(0)} mph
+                on screen is crossing a block in the time it really takes. Each vehicle&rsquo;s
+                free-flow speed comes from what TomTom reports for the block it is on, so the
+                traffic slows where Figueroa is slow. Everything else is{' '}
+                <code>v = (s − L)/τ</code> and nothing else: a red light is just a stopped car of
+                zero length on the stop line. Drop to 0.25&times; to talk through a wave.
               </p>
             </Panel>
           </div>
