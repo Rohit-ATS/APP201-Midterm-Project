@@ -164,7 +164,13 @@ function centerlineFromGps(traces: TomTomCoord[][]): Local[] | null {
     offsets = next;
   }
 
-  const MAX_SHIFT = 14; // metres — beyond this the spine itself is wrong
+  // The spine is the authoritative OSM centreline of Figueroa, and the
+  // buildings are OSM footprints in the same frame, so the two cannot overlap
+  // by construction. The GPS is therefore a REFINEMENT, not a reposition: a
+  // couple of metres, not fifteen. Letting it shift further pushed the
+  // roadway under the Wilshire Grand, because the traces include points from
+  // cross streets and from the opposite carriageway.
+  const MAX_SHIFT = 2.5; // metres
   const line: Local[] = [];
   for (let i = 0; i < binCount; i++) {
     const s = Math.min(total, i * BIN);

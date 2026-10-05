@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Billboard, Text } from '@react-three/drei';
 import buildingData from '../../data/buildings.json';
+import { CENTERLINE } from '../../data/corridor';
+import { nearestOnPolyline } from '../../lib/geo';
 
 /**
  * DOWNTOWN LOS ANGELES, AS IT ACTUALLY STANDS
@@ -27,7 +29,36 @@ interface RawBuilding {
   n?: string;
 }
 
-const RAW = buildingData.buildings as RawBuilding[];
+const ALL = buildingData.buildings as RawBuilding[];
+
+/**
+ * Half-width of the roadway reserve, metres.
+ *
+ * Three travel lanes plus kerb and parking is about 15 m of carriageway, so
+ * nothing should have a footprint within ~9 m of the centreline.
+ */
+const ROAD_CLEARANCE = 9.5;
+
+/**
+ * Drop any footprint that overlaps the roadway.
+ *
+ * OSM and the street centreline come from the same survey, so in principle
+ * this should remove nothing. In practice it catches a handful of real cases —
+ * pedestrian bridges tagged as buildings, canopies drawn across the street,
+ * and footprints digitised before a road realignment — and those few were
+ * enough to make it look like the towers had been dropped on the traffic.
+ *
+ * It is a safety net rather than a correction: if this starts removing a lot
+ * of buildings, the street geometry is wrong and should be fixed instead.
+ */
+const RAW: RawBuilding[] = ALL.filter((b) => {
+  for (const [x, z] of b.p) {
+    if (nearestOnPolyline(CENTERLINE, { x, z }).dist < ROAD_CLEARANCE) return false;
+  }
+  return true;
+});
+
+export const BUILDINGS_REMOVED = ALL.length - RAW.length;
 
 /** Towers tall enough to be worth naming in the scene. */
 const LABEL_MIN_HEIGHT = 205;
@@ -108,17 +139,17 @@ export function Buildings({ showLabels = true }: { showLabels?: boolean }) {
     <group>
       {bands.low && (
         <mesh geometry={bands.low}>
-          <meshStandardMaterial color="#1c1d22" roughness={0.9} metalness={0.05} flatShading />
+          <meshStandardMaterial color="#262a34" roughness={0.86} metalness={0.08} flatShading />
         </mesh>
       )}
       {bands.mid && (
         <mesh geometry={bands.mid}>
-          <meshStandardMaterial color="#212329" roughness={0.78} metalness={0.18} flatShading />
+          <meshStandardMaterial color="#2d323f" roughness={0.7} metalness={0.24} flatShading />
         </mesh>
       )}
       {bands.high && (
         <mesh geometry={bands.high}>
-          <meshStandardMaterial color="#272a33" roughness={0.56} metalness={0.42} flatShading />
+          <meshStandardMaterial color="#363d4d" roughness={0.52} metalness={0.46} flatShading />
         </mesh>
       )}
 
@@ -127,7 +158,7 @@ export function Buildings({ showLabels = true }: { showLabels?: boolean }) {
           <Billboard key={`${l.name}-${l.x.toFixed(0)}`} position={[l.x, l.h + 18, l.z]}>
             <Text
               fontSize={9}
-              color="#79839a"
+              color="#aab3c6"
               anchorX="center"
               anchorY="bottom"
               outlineWidth={0.45}

@@ -4,7 +4,7 @@ import { CorridorProfile } from '../components/charts/CorridorProfile';
 import { FundamentalDiagramChart } from '../components/charts/FundamentalDiagram';
 import { RoadScene, type CameraMode, type ColorMode } from '../components/scene/RoadScene';
 import { VehicleInspector } from '../components/VehicleInspector';
-import { BUILDING_COUNT } from '../components/scene/Buildings';
+import { BUILDING_COUNT, BUILDINGS_REMOVED } from '../components/scene/Buildings';
 import type { TrafficHook } from '../lib/useTraffic';
 import type { SimulationHook } from '../lib/useSimulation';
 import {
@@ -152,9 +152,13 @@ export function LiveCorridor({
 
               <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>
                 {reading.note ??
-                  (reading.centerlineSource === 'gps'
-                    ? `Street built from ${reading.gpsPointCount.toLocaleString()} real GPS points returned by TomTom, beside ${BUILDING_COUNT} real OpenStreetMap buildings.`
-                    : `${BUILDING_COUNT} real OpenStreetMap buildings; street from the surveyed intersection line.`)}
+                  `${BUILDING_COUNT} real OpenStreetMap buildings beside the real OSM centreline of Figueroa` +
+                    (reading.centerlineSource === 'gps'
+                      ? `, refined by ${reading.gpsPointCount.toLocaleString()} GPS points returned live by TomTom.`
+                      : '.') +
+                    (BUILDINGS_REMOVED > 0
+                      ? ` ${BUILDINGS_REMOVED} footprint${BUILDINGS_REMOVED === 1 ? '' : 's'} overlapping the roadway removed.`
+                      : '')}
               </p>
             </Panel>
 

@@ -14,6 +14,7 @@ import {
   makeFrame,
 } from './roadGeometry';
 import { Buildings } from './Buildings';
+import { CityGround } from './CityGround';
 import { VEHICLE_CLASSES } from '../../data/vehicleMix';
 import { CORRIDOR_LENGTH } from '../../data/corridor';
 import type { Simulation } from '../../lib/simulation';
@@ -70,13 +71,13 @@ function Road({ curve, lanes }: { curve: THREE.CatmullRomCurve3; lanes: number }
   return (
     <group>
       <mesh geometry={surface}>
-        <meshStandardMaterial color="#2b2b33" roughness={0.85} metalness={0.06} />
+        <meshStandardMaterial color="#3a3d47" roughness={0.82} metalness={0.06} />
       </mesh>
       <mesh geometry={markings}>
-        <meshBasicMaterial color="#b9b7a6" toneMapped={false} />
+        <meshBasicMaterial color="#d6d3bd" toneMapped={false} />
       </mesh>
       <mesh geometry={edges}>
-        <meshBasicMaterial color="#ded9c2" toneMapped={false} />
+        <meshBasicMaterial color="#efe9cf" toneMapped={false} />
       </mesh>
     </group>
   );
@@ -377,15 +378,6 @@ function SelectionRing({
 /* Ground                                                                 */
 /* --------------------------------------------------------------------- */
 
-function Ground() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.25, 0]}>
-      <planeGeometry args={[6000, 6000]} />
-      <meshStandardMaterial color="#0b0b0e" roughness={1} />
-    </mesh>
-  );
-}
-
 /* --------------------------------------------------------------------- */
 /* Camera                                                                 */
 /* --------------------------------------------------------------------- */
@@ -428,15 +420,16 @@ function CameraRig({
     if (mode === 'aerial') {
       // High and back, so the towers read as a skyline and the whole queue is
       // visible at once.
-      // Steep and high. A shallow aerial over a street canyon is useless: a
-      // 300 m tower hides everything behind it, so the shot has to come down
-      // from above the rooftops rather than across them.
+      // Nearly straight down. Figueroa is a canyon between 300 m towers, and
+      // at any oblique angle those towers stand between the camera and the
+      // street, chopping it into disconnected pieces. Looking down INTO the
+      // canyon is the only way to see the whole run of traffic at once.
       camera.position
         .copy(anchor)
-        .addScaledVector(nor, 120)
-        .addScaledVector(tan, -340)
-        .add(new THREE.Vector3(0, 760, 0));
-      lookAt.copy(anchor).addScaledVector(tan, 40);
+        .addScaledVector(nor, 55)
+        .addScaledVector(tan, -120)
+        .add(new THREE.Vector3(0, 880, 0));
+      lookAt.copy(anchor).addScaledVector(tan, 30);
     } else {
       // Street level: hovering just above the centre line, looking straight
       // down the canyon. Sitting out at the kerb puts the camera inside a
@@ -510,15 +503,19 @@ export function RoadScene({
         camera={{ fov: 48, near: 0.6, far: 9000 }}
         onPointerMissed={() => onSelect(null)}
       >
-        <color attach="background" args={['#07070b']} />
-        <fog attach="fog" args={['#07070b', 420, 2600]} />
+        <color attach="background" args={['#0b0d13']} />
+        <fog attach="fog" args={['#0b0d13', 700, 3400]} />
 
-        <ambientLight intensity={1.15} color="#7d8aa4" />
-        <directionalLight position={[220, 420, 180]} intensity={2.3} color="#e2e7f2" />
-        <directionalLight position={[-260, 140, -200]} intensity={0.75} color="#3a5884" />
-        <hemisphereLight args={['#5d6d8a', '#101016', 0.95]} />
+        {/* Dusk, not midnight. The earlier lighting was so dark that the real
+            geometry — 413 buildings and 1,955 ways of street network — simply
+            could not be seen, which rather defeated the point of using real
+            geometry. */}
+        <ambientLight intensity={2.1} color="#8e9bb5" />
+        <directionalLight position={[320, 560, 240]} intensity={2.9} color="#eef2fa" />
+        <directionalLight position={[-320, 200, -260]} intensity={1.15} color="#4a6a9c" />
+        <hemisphereLight args={['#7b8cab', '#1a1c24', 1.6]} />
 
-        <Ground />
+        <CityGround />
         {showBuildings && <Buildings showLabels={showLabels} />}
         <Road curve={curve} lanes={sim.config.lanes} />
         <Signals sim={sim} curve={curve} />
