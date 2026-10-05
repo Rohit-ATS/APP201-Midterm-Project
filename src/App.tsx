@@ -10,7 +10,7 @@ import { mpsToMph } from './lib/trafficMath';
 
 const VIEWS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'live', label: 'Live Corridor' },
+  { id: 'live', label: 'Live Street' },
   { id: 'maths', label: 'The Mathematics' },
   { id: 'creation', label: 'The Creation' },
 ] as const;
@@ -65,7 +65,7 @@ export default function App() {
             </svg>
             <span>
               The Shape of a Jam
-              <em>I&#8209;405 · Sepulveda Pass</em>
+              <em>S Figueroa St · Downtown LA</em>
             </span>
           </button>
 
