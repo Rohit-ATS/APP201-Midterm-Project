@@ -60,10 +60,9 @@ export function generateBraid(
     length: lengthM,
     lanes: 1,
     perLane: Math.max(6, Math.round(opts.perMile * (lengthM / 1609.344))),
-    bottleneck: false,
-    bottleneckFactor: 0.5,
-    bottleneckAt: 0.5,
-    bottleneckWidth: 0.05,
+    // The cloth is woven from free-running traffic, not from signal queues:
+    // we want the waves that emerge from the following rule alone.
+    signals: false,
   };
 
   const sim = new Simulation(config, params);
