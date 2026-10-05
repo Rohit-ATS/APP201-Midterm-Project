@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Billboard, Text } from '@react-three/drei';
 import buildingData from '../../data/buildings.json';
 import { CENTERLINE } from '../../data/corridor';
-import { nearestOnPolyline } from '../../lib/geo';
+import { pointAt } from '../../lib/geo';
 
 /**
  * DOWNTOWN LOS ANGELES, AS IT ACTUALLY STANDS
@@ -32,28 +32,89 @@ interface RawBuilding {
 const ALL = buildingData.buildings as RawBuilding[];
 
 /**
- * Half-width of the roadway reserve, metres.
+ * How much clear space to keep either side of the street centreline, metres.
  *
- * Three travel lanes plus kerb and parking is about 15 m of carriageway, so
- * nothing should have a footprint within ~9 m of the centreline.
+ * The carriageway is about 15 m, plus sidewalks. 26 m of clearance leaves an
+ * open canyon with room to see down it, which is the whole point of the view.
  */
-const ROAD_CLEARANCE = 9.5;
+const ROAD_CLEARANCE = 26;
+
+/** Is a point inside a polygon? Standard ray-casting test. */
+function pointInPolygon(x: number, z: number, poly: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i];
+    const [xj, zj] = poly[j];
+    const crosses = zi > z !== zj > z;
+    if (crosses && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** Distance from a point to a line segment. */
+function distToSegment(
+  px: number, pz: number,
+  ax: number, az: number,
+  bx: number, bz: number,
+): number {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const len2 = dx * dx + dz * dz;
+  if (len2 < 1e-9) return Math.hypot(px - ax, pz - az);
+  let t = ((px - ax) * dx + (pz - az) * dz) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
+}
+
+/** The street centreline, sampled every 10 m. */
+const ROAD_SAMPLES: Array<[number, number]> = (() => {
+  const out: Array<[number, number]> = [];
+  const total = CENTERLINE[CENTERLINE.length - 1].s;
+  for (let d = 0; d <= total; d += 10) {
+    const p = pointAt(CENTERLINE, d);
+    out.push([p.x, p.z]);
+  }
+  return out;
+})();
 
 /**
- * Drop any footprint that overlaps the roadway.
+ * Drop any footprint that sits on, or too close to, the roadway.
  *
- * OSM and the street centreline come from the same survey, so in principle
- * this should remove nothing. In practice it catches a handful of real cases —
- * pedestrian bridges tagged as buildings, canopies drawn across the street,
- * and footprints digitised before a road realignment — and those few were
- * enough to make it look like the towers had been dropped on the traffic.
+ * The first version of this only checked whether a building's CORNERS were
+ * near the centreline, which misses the case that actually looked wrong: a
+ * large block spanning the street has all four corners comfortably far from
+ * the middle of it, and still lies right across the road.
  *
- * It is a safety net rather than a correction: if this starts removing a lot
- * of buildings, the street geometry is wrong and should be fixed instead.
+ * This version walks the centreline and asks two questions at every step — is
+ * this point inside the building, and is it within clearance of any of the
+ * building's walls. Either one disqualifies it. The result is a guaranteed
+ * open canyon: buildings stand beside the street, never on it.
  */
 const RAW: RawBuilding[] = ALL.filter((b) => {
+  if (b.p.length < 3) return false;
+
+  // quick reject: if the whole footprint is far from the street, keep it
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const [x, z] of b.p) {
-    if (nearestOnPolyline(CENTERLINE, { x, z }).dist < ROAD_CLEARANCE) return false;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+
+  for (const [rx, rz] of ROAD_SAMPLES) {
+    if (
+      rx < minX - ROAD_CLEARANCE || rx > maxX + ROAD_CLEARANCE ||
+      rz < minZ - ROAD_CLEARANCE || rz > maxZ + ROAD_CLEARANCE
+    ) continue;
+
+    if (pointInPolygon(rx, rz, b.p)) return false;
+
+    for (let i = 0, j = b.p.length - 1; i < b.p.length; j = i++) {
+      if (distToSegment(rx, rz, b.p[j][0], b.p[j][1], b.p[i][0], b.p[i][1]) < ROAD_CLEARANCE) {
+        return false;
+      }
+    }
   }
   return true;
 });
