@@ -15,6 +15,8 @@ import {
   saturationFlow,
   saturationHeadway,
   signalCapacity,
+  vehiclesPerGreen,
+  STARTUP_LOST_TIME,
   jamDensity,
   DEFAULT_PARAMS,
   VEHPM_TO_VEHPMI,
@@ -574,6 +576,31 @@ export function Mathematics({
                 </span>
               </div>
               <p>
+                And this is the number I had been counting at the intersection without knowing it
+                had a name. Divide the usable green by the headway and you get how many cars clear
+                on one light:
+              </p>
+              <div className="formula" style={{ borderLeftColor: 'var(--series-4)' }}>
+                <span className="fx">n = (green &minus; startup lost time) / h</span>
+                <span className="where">
+                  At Wilshire — 42% green on a 90 s cycle, so {(0.42 * 90).toFixed(0)} s of green,
+                  minus about {STARTUP_LOST_TIME.toFixed(0)} s while the first few drivers react —
+                  that is{' '}
+                  <b style={{ color: 'var(--series-4)' }}>
+                    {vehiclesPerGreen(params, 0.42, 90).toFixed(0)} cars per lane
+                  </b>
+                  , or about {(vehiclesPerGreen(params, 0.42, 90) * 3).toFixed(0)} across the three
+                  through lanes.
+                </span>
+              </div>
+              <p>
+                So if you are the twentieth car in your lane, you are not getting through, and no
+                amount of impatience changes it. More than that queued and the signal is in{' '}
+                <strong>cycle failure</strong>: the leftovers wait for the next green, and if the
+                next green also arrives full, the queue grows every cycle and never recovers. That
+                is the difference between a street that is busy and a street that is broken.
+              </p>
+              <p>
                 But a lane only gets that rate while it is green. Multiply by the green share of the
                 cycle and you have what the street actually carries:
               </p>
@@ -606,7 +633,7 @@ export function Mathematics({
                       <th>Reaction time &tau;</th>
                       <th style={{ textAlign: 'right' }}>Wave</th>
                       <th style={{ textAlign: 'right' }}>Sat. flow</th>
-                      <th style={{ textAlign: 'right' }}>@45% green</th>
+                      <th style={{ textAlign: 'right' }}>Cars/green</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -626,7 +653,7 @@ export function Mathematics({
                             {Math.round(d.qmax * 3600).toLocaleString()}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            {Math.round(signalCapacity(t, 0.45) * 3600).toLocaleString()}
+                            {vehiclesPerGreen(t, 0.45, 90).toFixed(0)}
                           </td>
                         </tr>
                       );

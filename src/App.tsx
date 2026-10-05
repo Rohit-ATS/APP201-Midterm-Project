@@ -132,8 +132,18 @@ export default function App() {
             <div>
               <strong>The Shape of a Jam</strong>
               <p className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-                A geometry investigation of stop-and-go waves on Interstate 405 through the
-                Sepulveda Pass, Los Angeles. Built for APP201, Geometry in the World.
+                A geometry investigation of stop-and-go waves on South Figueroa Street, downtown
+                Los Angeles. Built for APP201, Geometry in the World.
+              </p>
+              <p style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>
+                By <strong>Rohit Maruri</strong> ·{' '}
+                <a
+                  href="https://github.com/Rohit-ATS"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  github.com/Rohit-ATS
+                </a>
               </p>
             </div>
             <div>

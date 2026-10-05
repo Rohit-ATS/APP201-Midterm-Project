@@ -230,17 +230,25 @@ export function Creation({ traffic }: { traffic: TrafficHook; sim: SimulationHoo
               <p>
                 First, I hope they notice the pattern before they notice the explanation — that it
                 reads as a textile, something you might find on a loom rather than in a transport
-                engineering paper.
+                engineering paper. I wanted it to be worth looking at before it was worth
+                understanding.
               </p>
               <p>
-                Then I hope they move the τ slider, see every diagonal pivot in unison, and wonder
-                why those lines are not allowed to disagree with each other. That question is the
-                whole project: they cannot disagree, because the angle was never theirs to choose.
-                It was set by the length of a car and the speed of a human thought.
+                Then I hope they move the τ slider, see every diagonal pivot in unison, and{' '}
+                <em>wonder why those lines are not allowed to disagree with each other</em>. That
+                question is the whole project. They cannot disagree, because the angle was never
+                theirs to choose. It was set by the length of a car and the speed of a human
+                thought.
               </p>
               <p>
-                And if someone drives down Figueroa afterwards, sits at a red at 7th, and
-                thinks <em>I am inside a diagonal line</em> — then this worked.
+                The thing I would most like someone to take away is the one that surprised me: this
+                cloth is a picture of something nobody designed. No driver is trying to make a
+                pattern. Every one of them is just leaving a gap. The pattern is what a few hundred
+                people leaving gaps <em>adds up to</em>, and it has an exact shape.
+              </p>
+              <p>
+                And if someone walks down Figueroa afterwards, stands at a red at 7th, counts the
+                cars that clear and thinks <em>I know why it was that many</em> — then this worked.
               </p>
             </div>
 

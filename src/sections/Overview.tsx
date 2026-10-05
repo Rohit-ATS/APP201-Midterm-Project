@@ -103,63 +103,85 @@ export function Overview({
         <div className="wrap">
           <div className="section-head">
             <div className="eyebrow">Section 1 · Notice + Name</div>
-            <h2 className="h2">The light turned green ten seconds ago</h2>
+            <h2 className="h2">Why do some cars make the light and others wait twice?</h2>
             <p className="lede">
-              You are stopped on Figueroa, six cars back from the red at 7th. The light turns
-              green. Nothing happens to you. A beat later the first car moves, then the second,
-              then the third — and the movement arrives at you like something travelling down the
-              line. Which is exactly what it is.
+              I walk the same intersection almost every day. Standing there long enough, you start
+              counting without meaning to: this many cars got through on that green, and the ones
+              behind them had to sit through the whole cycle again. Some days the line clears in
+              one go. Some days the same-looking line needs two. I wanted to know what decides it.
             </p>
           </div>
 
           <div className="split split-wide-right">
             <div className="prose">
-              <h3 className="h3">What I noticed</h3>
+              <h3 className="h3">What I observed</h3>
               <p>
-                I started counting the delay. It was always about the same — and when I watched the
-                brake lights come <em>on</em> at a red instead of off at a green, the same thing
-                happened in reverse: a line of red lighting up backwards down the block, one car at
-                a time, at a steady pace.
+                Two things, and it took me a while to realise they were the same thing.
               </p>
               <p>
-                <strong>The queue was moving.</strong> Not the way traffic moves. Moving{' '}
-                <em>against</em> it. Every car was pointed south and going south, and the back edge
-                of the jam was travelling north, up Figueroa, reaching cars that had not even
-                arrived at the intersection yet.
+                The first is the counting. A green light does not let &ldquo;the traffic&rdquo;
+                through — it lets a <em>specific number</em> of cars through, and that number is
+                oddly consistent. If you are inside it you make the light. If you are one place
+                behind it, you watch the whole cycle go by and try again.
               </p>
               <p>
-                The cars and the traffic jam were going in opposite directions at the same time.
-                That is a strange enough sentence that I wanted to know whether it was really true,
-                and if it was, how fast the backwards thing was going.
+                The second is what happens at the <em>back</em> of that line. When the light goes
+                red, the brake lights do not all come on at once. They light up one at a time,
+                travelling backwards down the block, away from the intersection — reaching cars
+                that have not even arrived yet. And when it goes green, the same thing happens in
+                reverse: the movement works its way back to you.
+              </p>
+              <p>
+                <strong>So the queue is moving.</strong> Not the way traffic moves — moving{' '}
+                <em>against</em> it. Every car is pointed south and going south, and the back edge
+                of the jam is travelling north. The cars and the traffic jam are going in opposite
+                directions at the same time.
               </p>
 
               <h3 className="h3" style={{ marginTop: 34 }}>
                 Why it caught my attention
               </h3>
               <p>
-                Because it meant the jam was not made of cars. It was a <em>shape</em> that cars
-                passed through — the way a wave on water is not water travelling across the ocean,
-                but water going up and down in place while the shape moves.
+                Honestly? Because for a long time I decided I was done with maths. I had made up my
+                mind that I would never study it again, and the only reason I did is that my degree
+                required it.
               </p>
               <p>
-                And if a jam is a shape, then it has geometry. It has a speed, a direction, a front
-                and a back edge, and a slope on a graph. Those are things I can measure and predict
-                instead of just complaining about.
+                What changed was a video I watched about how large language models actually work —
+                the thing behind ChatGPT and Claude, which I use every day building my own
+                projects. It turns out an LLM is an enormous amount of mathematics stacked up until
+                you can talk to it. And underneath that, computers are running on binary. Ones and
+                zeroes.
               </p>
               <p>
-                Downtown turned out to be the right place to look. On a freeway you have to wait
-                for a jam to happen. On Figueroa one is manufactured every ninety seconds by a red
-                light, so the thing I wanted to measure arrives on a schedule.
+                That reframed the whole subject for me. Maths is not a topic I have to get past. It
+                is the thing everything I want to build is made out of, and as a software engineer
+                I am going to be using it constantly without always being able to tell that that is
+                what I am doing.
+              </p>
+              <p>
+                So when I noticed the counting at that intersection, I did not dismiss it the way I
+                would have a week earlier. A jam that moves backwards is not a complaint — it is a{' '}
+                <em>shape</em>, and a shape has geometry. It has a speed, a direction, a front and a
+                back edge, and a slope on a graph. Those are things I can measure and predict.
               </p>
 
               <h3 className="h3" style={{ marginTop: 34 }}>
                 Naming it
               </h3>
               <p>
-                The thing I had been watching has a name: a <strong>stop-and-go wave</strong>, or
-                more precisely a <strong>shockwave</strong> — the moving boundary between two
-                different states of traffic. The property I wanted was its{' '}
-                <strong>wave speed</strong>: how fast that boundary travels, and in which direction.
+                Both things I noticed have names, and finding them out was most of the work.
+              </p>
+              <p>
+                The backwards-travelling edge is a <strong>stop-and-go wave</strong>, or more
+                precisely a <strong>shockwave</strong>: the moving boundary between two different
+                states of traffic. The property I wanted was its <strong>wave speed</strong> — how
+                fast that boundary travels, and in which direction.
+              </p>
+              <p>
+                And the counting has a name too. When more cars are queued than can clear on one
+                green, that is a <strong>cycle failure</strong>. Section 2 works out exactly where
+                that line falls, and it turns out to be the same piece of mathematics.
               </p>
             </div>
 
@@ -196,18 +218,18 @@ export function Overview({
             {[
               {
                 n: 1,
-                q: 'How fast does a jam travel backwards?',
-                a: 'And is it the same speed every time, or does it depend on the day, the road, the drivers?',
+                q: 'How many cars actually clear one green?',
+                a: 'The number I kept counting at the intersection. If I can predict it, I can predict who makes the light and who waits for the next one.',
               },
               {
                 n: 2,
-                q: 'Where does that speed come from?',
-                a: 'If it is predictable, something must determine it. What is the thing being divided by what?',
+                q: 'How fast does the back of the queue travel?',
+                a: 'It clearly moves, and it clearly moves the wrong way. Is it the same speed every time, or does it depend on the day, the street, the drivers?',
               },
               {
                 n: 3,
-                q: 'Why do jams start with no cause?',
-                a: 'A crash explains a jam. But most of these have no crash. What makes one appear out of nothing?',
+                q: 'Where do those two numbers come from?',
+                a: 'If they are predictable then something determines them. What is the thing being divided by what?',
               },
               {
                 n: 4,
@@ -232,7 +254,7 @@ export function Overview({
               room in front of it than a slow car, so when a road fills up, something has to give.
               I did not know what that meant mathematically yet — but &ldquo;how much road does one
               car need?&rdquo; turned out to be exactly the right question, and the answer is a
-              straight line. The whole of{' '}
+              straight line. It answers all four of those at once. The whole of{' '}
               <button
                 className="btn"
                 style={{ padding: '2px 8px', fontSize: 13 }}
@@ -324,6 +346,46 @@ export function Overview({
                 derived from the two above it.
               </p>
             </Panel>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= WHERE THIS GOES ================= */}
+      <section className="section">
+        <div className="wrap">
+          <div className="prose" style={{ maxWidth: '72ch' }}>
+            <div className="eyebrow">Where I want to take this</div>
+            <h2 className="h2">Starting with the city everyone says is impossible</h2>
+            <p>
+              Traffic is not a side issue. For anyone who commutes to an office it is a permanent
+              part of their life and it takes a real piece of every day. That is the problem I
+              actually want to work on, and I wanted to start on it now rather than wait until I
+              felt qualified.
+            </p>
+            <p>
+              I picked Los Angeles on purpose. People say LA traffic is unsolvable, and I would
+              rather work on the hard version — partly because I like difficult problems, and
+              partly because if I ever want someone to trust me with a problem of theirs, I need to
+              be able to show my work on one that is genuinely hard.
+            </p>
+            <p>
+              This project is one mile of one street, which is nowhere near solving anything. But it
+              is a mile where the model and the measurements agree, where the geometry predicts a
+              number an engineer can verify with a stopwatch, and where I can say exactly which
+              assumptions I would have to fix next. That is a real starting point rather than an
+              opinion about traffic.
+            </p>
+            <p>
+              A month ago I had decided I was finished with mathematics. This is what changed my
+              mind: not a lecture about why maths matters, but one question at one intersection
+              that turned out to have an exact answer.
+            </p>
+            <p className="muted" style={{ fontSize: 14 }}>
+              — Rohit Maruri ·{' '}
+              <a href="https://github.com/Rohit-ATS" target="_blank" rel="noreferrer noopener">
+                github.com/Rohit-ATS
+              </a>
+            </p>
           </div>
         </div>
       </section>
