@@ -239,7 +239,7 @@ export function Creation({ traffic }: { traffic: TrafficHook; sim: SimulationHoo
                 It was set by the length of a car and the speed of a human thought.
               </p>
               <p>
-                And if someone drives home on the 405 afterwards, sits in a jam with no cause, and
+                And if someone drives down Figueroa afterwards, sits at a red at 7th, and
                 thinks <em>I am inside a diagonal line</em> — then this worked.
               </p>
             </div>
@@ -255,7 +255,7 @@ export function Creation({ traffic }: { traffic: TrafficHook; sim: SimulationHoo
                 <p style={{ fontSize: 13.5 }}>
                   Because the vehicle types and starting positions are drawn at random, no two
                   weaves are identical. I decided to keep that rather than fix a seed. Every jam on
-                  the 405 is a one-off too; the thing that repeats is not the cloth but the angle.
+                  Figueroa is a one-off too; the thing that repeats is not the cloth but the angle.
                 </p>
                 <p style={{ fontSize: 13.5, marginBottom: 0 }}>
                   <strong>Print note:</strong> the <em>Bone</em> palette is the one meant for

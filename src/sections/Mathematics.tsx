@@ -12,6 +12,10 @@ import {
   waveSpeed,
   fundamentalDiagram,
   greenshieldsCapacity,
+  saturationFlow,
+  saturationHeadway,
+  signalCapacity,
+  jamDensity,
   DEFAULT_PARAMS,
   VEHPM_TO_VEHPMI,
 } from '../lib/trafficMath';
@@ -72,7 +76,7 @@ export function Mathematics({
       />
       <div className="row" style={{ marginTop: 6 }}>
         <button className="btn" onClick={resetParams}>
-          Reset to the 405
+          Reset to Figueroa
         </button>
       </div>
 
@@ -90,7 +94,7 @@ export function Mathematics({
           unit="mph"
           label="Wave speed L/τ"
           color="var(--series-4)"
-          sub="backwards, up the freeway"
+          sub="backwards, up the street"
         />
         <Stat
           value={Math.round(fd.qmax * 3600).toLocaleString()}
@@ -119,8 +123,9 @@ export function Mathematics({
             </h2>
             <p className="lede">
               That is the only question I had to answer. Everything else — the capacity of a
-              freeway, the shape of the jam, the speed it travels backwards, the reason a $1.6
-              billion widening did not help — falls out of the answer as algebra.
+              street, the shape of the jam, the speed it travels backwards, the reason a street
+              under the densest towers in the west still carries so little — falls out of the
+              answer as algebra.
             </p>
           </div>
 
@@ -134,7 +139,7 @@ export function Mathematics({
                 <div className="step-body prose">
                   <h3 className="h3">A moving car owns a segment of road</h3>
                   <p>
-                    Think about what a car actually occupies on a freeway. Not just its body — the
+                    Think about what a car actually occupies on the road. Not just its body — the
                     body <em>plus</em> the gap in front of it that the driver refuses to give up.
                     Call that total length the <strong>spacing</strong>, measured front bumper to
                     front bumper. It is the length of road one car is using.
@@ -182,7 +187,7 @@ export function Mathematics({
                     L is the intercept of that line, so it had better not be a guess. The traffic
                     API tells me how fast vehicles are moving but never what they are, so I built L
                     from the published fleet composition for this corridor: the weighted mean
-                    length of what drives the 405, plus the bumper gap drivers leave when stopped.
+                    length of what drives Figueroa, plus the bumper gap drivers leave when stopped.
                   </p>
                   <div className="formula">
                     <span className="fx">
@@ -286,7 +291,7 @@ export function Mathematics({
                   </div>
                   <p>
                     The shape is a triangle. The left edge is the road working; the right edge is
-                    the road failing; the peak is the best it can ever do. Everything a freeway can
+                    the road failing; the peak is the best it can ever do. Everything a lane can
                     physically be is somewhere on those two segments.
                   </p>
                 </div>
@@ -320,15 +325,21 @@ export function Mathematics({
                   parabola — much prettier than a triangle. I wanted to use it.
                 </p>
                 <p>
-                  But it predicts a capacity of{' '}
-                  <strong>
-                    {Math.round(greenshieldsCapacity(params) * 3600).toLocaleString()} veh/h per lane
-                  </strong>
-                  , and real freeway lanes measure 2,000&ndash;2,400. It is wrong by about{' '}
-                  {Math.round((greenshieldsCapacity(params) / fd.qmax - 1) * 100)}%. The triangular
-                  model is uglier, is built from a rule drivers actually follow, and lands inside
-                  the measured range. I kept the ugly one. Both are drawn above so you can judge
-                  that call yourself.
+                  Its peak height is not far off: {Math.round(greenshieldsCapacity(params) * 3600).toLocaleString()}{' '}
+                  against {Math.round(fd.qmax * 3600).toLocaleString()} veh/h, about{' '}
+                  {Math.abs(Math.round((greenshieldsCapacity(params) / fd.qmax - 1) * 100))}% low. The
+                  problem is <em>where</em> it puts that peak. Greenshields says a lane does its best
+                  work at half the jam density —{' '}
+                  <strong>{((jamDensity(params) / 2) * VEHPM_TO_VEHPMI).toFixed(0)} veh/mile</strong>{' '}
+                  — while the triangular model says{' '}
+                  <strong>{(fd.kc * VEHPM_TO_VEHPMI).toFixed(0)}</strong>.
+                </p>
+                <p>
+                  That is not a small disagreement. It is the difference between a model that
+                  predicts this street breaks down when it is half full, and one that predicts it
+                  breaks down when it is a quarter full. The street breaks down when it is a quarter
+                  full. I kept the ugly one, and both are drawn above so you can judge the call
+                  yourself.
                 </p>
               </div>
 
@@ -366,7 +377,7 @@ export function Mathematics({
                     <span className="fx">u = (q₂ − q₁) / (k₂ − k₁)</span>
                     <span className="where">
                       the slope of the chord. If it comes out <b>negative</b>, the boundary is
-                      travelling <b>upstream</b> — backwards along the freeway, against the traffic.
+                      travelling <b>upstream</b> — backwards up the street, against the traffic.
                     </span>
                   </div>
                 </div>
@@ -392,7 +403,7 @@ export function Mathematics({
                     </span>
                   </div>
                   <p>
-                    Look at what is <em>not</em> in that formula. Not the freeway. Not the number of
+                    Look at what is <em>not</em> in that formula. Not the street. Not the number of
                     lanes. Not how many cars there are, how fast they were going, what city you are
                     in, or what caused the jam. Only the length of a car and the reaction time of a
                     human being.
@@ -537,80 +548,85 @@ export function Mathematics({
         </div>
       </section>
 
-      {/* ================= THE WIDENING ================= */}
+      {/* ================= SIGNALS ================= */}
       <section className="section">
         <div className="wrap">
           <div className="split">
             <div className="prose">
               <div className="eyebrow">Question 4</div>
-              <h2 className="h2">Why the $1.6 billion lane did not work</h2>
+              <h2 className="h2">Why a street this wide carries so little</h2>
               <p>
-                Capacity per lane is the peak of the triangle, and the peak depends on exactly three
-                things: the free-flow speed, the length of a car, and the reaction time of a driver.
+                The peak of the triangle is not the capacity of a city street. It is the{' '}
+                <strong>saturation flow</strong>: the rate cars cross the stop line while the light
+                is green and the queue is still rolling. Here that is{' '}
+                <strong>{Math.round(saturationFlow(params) * 3600).toLocaleString()} veh/h per lane</strong>.
               </p>
-              <div className="formula">
-                <span className="fx">q_max = v_f · w · k_j / (v_f + w)</span>
+              <p>
+                Turn it upside down and you get the number traffic engineers actually measure with a
+                stopwatch on a street corner — the <strong>saturation headway</strong>, the gap in
+                time between successive front bumpers crossing the line:
+              </p>
+              <div className="formula" style={{ borderLeftColor: 'var(--series-3)' }}>
+                <span className="fx">h = 1 / q_max = {saturationHeadway(params).toFixed(2)} s</span>
                 <span className="where">
-                  with w = L/τ and k<sub>j</sub> = 1/L. Note what is absent: the number of lanes.
+                  Published field measurements on American city streets: 1.9&ndash;2.1 s. We did not
+                  fit this. It fell out of a car&rsquo;s length and a reaction time.
                 </span>
               </div>
               <p>
-                Adding a lane multiplies total throughput by 5/4. It does not raise the peak, and it
-                does nothing at all to <em>w</em> — the new lane fails in exactly the same way, at
-                exactly the same density, and its jams travel backwards at exactly the same{' '}
-                {w.toFixed(1)} mph.
+                But a lane only gets that rate while it is green. Multiply by the green share of the
+                cycle and you have what the street actually carries:
+              </p>
+              <div className="formula">
+                <span className="fx">capacity = q_max &times; (green / cycle)</span>
+                <span className="where">
+                  At Wilshire, the shortest green on this corridor at 42%, that is{' '}
+                  <b>{Math.round(signalCapacity(params, 0.42) * 3600).toLocaleString()} veh/h per lane</b>{' '}
+                  — less than half of what the asphalt could do.
+                </span>
+              </div>
+              <p>
+                So the answer to question 4 is that the lanes are not the constraint. Figueroa gives
+                away more than half its capacity to red time, and the backward wave from every one
+                of those reds eats into the green that follows. Adding a lane multiplies a number
+                that is already being halved.
               </p>
               <p>
-                Meanwhile the extra capacity attracts extra trips, a well-documented effect called{' '}
-                <strong>induced demand</strong>. If demand rises by more than 25%, the wider road is
-                worse than the narrow one. On the 405, it did.
-              </p>
-              <p>
-                The uncomfortable conclusion the geometry points to: the leverage is not in{' '}
-                <em>L</em>, which we cannot change much, but in <strong>τ</strong>. Drag the
-                reaction-time slider down toward 0.5 s — the figure for automated vehicle
-                following — and watch the capacity number climb. Shortening human reaction time is
-                impossible. Removing the human is not.
+                The leverage is in <strong>&tau;</strong> and in the <strong>green ratio</strong> —
+                neither of which is made of concrete. Drag the reaction-time slider toward 0.5 s,
+                the figure for automated vehicle following, and watch the saturation flow climb.
               </p>
             </div>
 
             <div>
-              <Panel title="Capacity as a function of τ alone">
+              <Panel title="What the street would carry">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Reaction time τ</th>
-                      <th style={{ textAlign: 'right' }}>Wave speed</th>
-                      <th style={{ textAlign: 'right' }}>Capacity / lane</th>
+                      <th>Reaction time &tau;</th>
+                      <th style={{ textAlign: 'right' }}>Wave</th>
+                      <th style={{ textAlign: 'right' }}>Sat. flow</th>
+                      <th style={{ textAlign: 'right' }}>@45% green</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[0.5, 0.9, 1.2, 1.5, 2.0, 2.5].map((tau) => {
-                      const t = fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, tau });
+                    {[0.5, 0.9, 1.2, 1.4, 1.8, 2.4].map((tau) => {
+                      const t = { ...DEFAULT_PARAMS, L: params.L, vf: params.vf, tau };
+                      const d = fundamentalDiagram(t);
                       const isNow = Math.abs(tau - params.tau) < 0.03;
                       return (
-                        <tr
-                          key={tau}
-                          style={
-                            isNow
-                              ? { background: 'rgba(57,135,229,0.12)' }
-                              : undefined
-                          }
-                        >
+                        <tr key={tau} style={isNow ? { background: 'rgba(57,135,229,0.12)' } : undefined}>
                           <td>
                             {tau.toFixed(1)} s
-                            {tau === 0.5 && (
-                              <span className="muted" style={{ fontSize: 11.5 }}> · automated</span>
-                            )}
-                            {tau === 1.5 && (
-                              <span className="muted" style={{ fontSize: 11.5 }}> · human</span>
-                            )}
+                            {tau === 0.5 && <span className="muted" style={{ fontSize: 11.5 }}> · automated</span>}
+                            {tau === 1.4 && <span className="muted" style={{ fontSize: 11.5 }}> · human</span>}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>{mpsToMph(d.w).toFixed(1)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                            {Math.round(d.qmax * 3600).toLocaleString()}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            {mpsToMph(t.w).toFixed(1)} mph
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ink-primary)' }}>
-                            {Math.round(t.qmax * 3600).toLocaleString()}
+                            {Math.round(signalCapacity(t, 0.45) * 3600).toLocaleString()}
                           </td>
                         </tr>
                       );
@@ -618,14 +634,13 @@ export function Mathematics({
                   </tbody>
                 </table>
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 14, marginBottom: 0 }}>
-                  Cutting τ from 1.5 s to 0.5 s raises one lane&rsquo;s capacity by about{' '}
+                  Cutting &tau; from 1.4 s to 0.5 s raises one lane&rsquo;s saturation flow by about{' '}
                   {Math.round(
-                    (fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, tau: 0.5 }).qmax /
-                      fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, tau: 1.5 }).qmax -
-                      1) *
-                      100,
+                    (fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, vf: params.vf, tau: 0.5 }).qmax /
+                      fundamentalDiagram({ ...DEFAULT_PARAMS, L: params.L, vf: params.vf, tau: 1.4 }).qmax -
+                      1) * 100,
                   )}
-                  % — more than adding two lanes would, and without pouring any concrete.
+                  % — more than doubling the number of lanes would, and without pouring any concrete.
                 </p>
               </Panel>
             </div>
@@ -660,16 +675,16 @@ export function Mathematics({
                 d: 'One τ for everybody. In reality τ varies from about 0.8 s to over 2.5 s, and that variation is itself a cause of waves. A distribution of τ would make the model messier and more realistic.',
               },
               {
-                t: 'The road is a loop',
-                d: 'The simulation runs on a closed circuit so that traffic is conserved and nothing has to be invented at the boundaries. A real corridor has on-ramps and off-ramps injecting and removing demand.',
+                t: 'Traffic recirculates',
+                d: 'A vehicle that leaves 11th Street re-enters at 3rd, so the amount of traffic is conserved and nothing has to be invented at the boundaries. Real Figueroa gains and loses cars at every cross street and every garage entrance.',
               },
               {
                 t: 'The triangle has sharp corners',
                 d: 'Real measured data scatters into a cloud around the peak rather than meeting at a point, partly because capacity itself drops once a queue forms — an effect called capacity drop that this model does not include.',
               },
               {
-                t: 'Grades are a fudge',
-                d: 'I model the Sepulveda climb as a zone of reduced free-flow speed. In reality it is heavy vehicles losing power on a 4% grade, which is a different mechanism that happens to look similar.',
+                t: 'Nothing turns, parks or crosses',
+                d: 'On a real downtown street a huge share of the delay comes from cars waiting to turn across traffic, delivery vans double-parking, and pedestrians holding the turn phase. None of that is modelled, so my street is tidier than Figueroa has ever been.',
               },
             ].map((c) => (
               <Panel key={c.t}>

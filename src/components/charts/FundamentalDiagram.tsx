@@ -22,7 +22,7 @@ import type { StationAnalysis } from '../../lib/analysis';
  * is a speed. The slope from the origin to a point is the speed of the cars.
  * The slope of the chord between two points is the speed of the BOUNDARY
  * between those two states — and when that chord tilts downward, the boundary
- * runs backwards up the freeway.
+ * runs backwards up the street.
  */
 export function FundamentalDiagramChart({
   params,
@@ -94,7 +94,7 @@ export function FundamentalDiagramChart({
           width={w}
           height={h}
           role="img"
-          aria-label="Flow against density for one lane of the I-405"
+          aria-label="Flow against density for one lane of South Figueroa Street"
           onMouseLeave={() => {
             setHover(null);
             tip.hide();

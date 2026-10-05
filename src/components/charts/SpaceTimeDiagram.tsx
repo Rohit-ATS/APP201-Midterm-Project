@@ -17,7 +17,7 @@ import { mpsToMph, waveSpeed, type TrafficParams } from '../../lib/trafficMath';
  *
  * And then the thing the whole project is about: the jam itself is a shape on
  * this picture, and it LEANS THE OTHER WAY. Cars travel up and to the right.
- * The jam travels down and to the right — backwards along the freeway. The
+ * The jam travels down and to the right — backwards up the street. The
  * dashed reference line has slope exactly -L/tau, and the jam's edge runs
  * parallel to it.
  */

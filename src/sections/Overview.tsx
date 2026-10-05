@@ -5,6 +5,7 @@ import type { TrafficHook } from '../lib/useTraffic';
 import type { SimulationHook } from '../lib/useSimulation';
 import { mpsToMph, waveSpeed, mToFt } from '../lib/trafficMath';
 import { CORRIDOR_LENGTH } from '../data/corridor';
+import { BUILDING_COUNT } from '../components/scene/Buildings';
 
 export function Overview({
   traffic,
@@ -27,8 +28,11 @@ export function Overview({
         <div className="hero-scene">
           <RoadScene
             sim={sim.sim}
-            cameraMode="corridor"
+            centerline={reading.centerline}
+            cameraMode="aerial"
             colorMode="paint"
+            selectedId={null}
+            onSelect={() => {}}
             style={{ width: '100%', height: '100%' }}
           />
         </div>
@@ -39,7 +43,7 @@ export function Overview({
             <div className="hero-kicker">
               <Badge color="var(--series-1)">APP201 · Geometry in the World</Badge>
               <Badge color={reading.source === 'live' ? 'var(--good)' : 'var(--warning)'}>
-                {reading.source === 'live' ? 'Live traffic' : 'Recorded traffic'} · I-405 Sepulveda Pass
+                {reading.source === 'live' ? 'Live traffic' : 'Recorded traffic'} · S Figueroa St, DTLA
               </Badge>
             </div>
 
@@ -50,10 +54,10 @@ export function Overview({
             </h1>
 
             <p className="hero-sub">
-              On the 405 through the Sepulveda Pass, the cars go south at 60 mph and the jam goes
-              north at 11. That second number is not a coincidence and not a measurement — it is a
-              car&rsquo;s length divided by a driver&rsquo;s reaction time, and you can derive it
-              from a single straight line.
+              On Figueroa, at the foot of the tallest towers in the western United States, the
+              cars go south and the jam goes north at {w.toFixed(0)} mph. That second number is not
+              a coincidence and not a measurement — it is a car&rsquo;s length divided by a
+              driver&rsquo;s reaction time, and you can derive it from a single straight line.
             </p>
 
             <div className="hero-actions">
@@ -61,7 +65,7 @@ export function Overview({
                 See the geometry
               </button>
               <button className="btn" onClick={() => onNavigate('live')}>
-                Open the live corridor
+                Open the live street
               </button>
             </div>
 
@@ -87,7 +91,7 @@ export function Overview({
               />
               <Stat
                 value={Math.round(analysis.vehiclesOnRoad).toLocaleString()}
-                label="Vehicles on the stretch"
+                label="Vehicles on the street"
               />
             </div>
           </div>
@@ -99,11 +103,12 @@ export function Overview({
         <div className="wrap">
           <div className="section-head">
             <div className="eyebrow">Section 1 · Notice + Name</div>
-            <h2 className="h2">The jam that was not there</h2>
+            <h2 className="h2">The light turned green ten seconds ago</h2>
             <p className="lede">
-              Everyone who drives the 405 has had the same experience. Traffic stops. You crawl for
-              two minutes. Then it clears, and there is nothing there — no crash, no closure, no
-              reason. You spend the next mile looking for the thing that caused it and never find it.
+              You are stopped on Figueroa, six cars back from the red at 7th. The light turns
+              green. Nothing happens to you. A beat later the first car moves, then the second,
+              then the third — and the movement arrives at you like something travelling down the
+              line. Which is exactly what it is.
             </p>
           </div>
 
@@ -111,19 +116,21 @@ export function Overview({
             <div className="prose">
               <h3 className="h3">What I noticed</h3>
               <p>
-                I started paying attention to those empty jams, and I noticed something I had been
-                driving past for years without seeing: <strong>the jam was moving</strong>.
+                I started counting the delay. It was always about the same — and when I watched the
+                brake lights come <em>on</em> at a red instead of off at a green, the same thing
+                happened in reverse: a line of red lighting up backwards down the block, one car at
+                a time, at a steady pace.
               </p>
               <p>
-                Not moving the way traffic moves. Moving <em>against</em> it. If I looked in the
-                mirror after getting through one, I could watch the brake lights behind me light up
-                in sequence, a few cars at a time, travelling steadily backwards up the freeway
-                while every single car involved was going forwards.
+                <strong>The queue was moving.</strong> Not the way traffic moves. Moving{' '}
+                <em>against</em> it. Every car was pointed south and going south, and the back edge
+                of the jam was travelling north, up Figueroa, reaching cars that had not even
+                arrived at the intersection yet.
               </p>
               <p>
-                The cars and the jam were going in opposite directions at the same time. That is a
-                strange enough sentence that I wanted to know whether it was really true, and if it
-                was, how fast the backwards thing was going.
+                The cars and the traffic jam were going in opposite directions at the same time.
+                That is a strange enough sentence that I wanted to know whether it was really true,
+                and if it was, how fast the backwards thing was going.
               </p>
 
               <h3 className="h3" style={{ marginTop: 34 }}>
@@ -131,13 +138,18 @@ export function Overview({
               </h3>
               <p>
                 Because it meant the jam was not made of cars. It was a <em>shape</em> that cars
-                passed through — the way a wave on water is not made of water travelling across the
-                ocean, but of water going up and down in place while the shape moves.
+                passed through — the way a wave on water is not water travelling across the ocean,
+                but water going up and down in place while the shape moves.
               </p>
               <p>
                 And if a jam is a shape, then it has geometry. It has a speed, a direction, a front
                 and a back edge, and a slope on a graph. Those are things I can measure and predict
                 instead of just complaining about.
+              </p>
+              <p>
+                Downtown turned out to be the right place to look. On a freeway you have to wait
+                for a jam to happen. On Figueroa one is manufactured every ninety seconds by a red
+                light, so the thing I wanted to measure arrives on a schedule.
               </p>
 
               <h3 className="h3" style={{ marginTop: 34 }}>
@@ -152,18 +164,18 @@ export function Overview({
             </div>
 
             <div>
-              <Panel title="Visual evidence · the corridor right now">
+              <Panel title="Visual evidence · the street right now">
                 <CorridorProfile analysis={analysis} />
               </Panel>
 
               <div className="callout" style={{ marginTop: 20 }}>
                 <div className="callout-title">The evidence in one sentence</div>
                 <p>
-                  Right now the slowest point on this stretch is{' '}
+                  Right now the slowest point on this street is{' '}
                   <strong>{analysis.worst.name}</strong> at{' '}
                   <strong>{mpsToMph(analysis.worst.v).toFixed(0)} mph</strong>, while traffic
-                  further <em>down</em> the road is moving faster. Cars are leaving the slow
-                  section quicker than they are arriving at it — so the back of the queue has to be
+                  further <em>down</em> the street is moving faster. Cars are leaving the slow
+                  block quicker than they are arriving at it — so the back of the queue has to be
                   moving backwards. That is the wave, visible in a chart instead of a mirror.
                 </p>
               </div>
@@ -199,8 +211,8 @@ export function Overview({
               },
               {
                 n: 4,
-                q: 'Why did widening the 405 not work?',
-                a: 'Los Angeles spent $1.6 billion adding a lane through this pass. Travel times did not improve. Is that bad luck, or geometry?',
+                q: 'Why can a street this wide carry so little?',
+                a: 'Four lanes under the densest office towers in the west, and it crawls. Is the answer more lanes, or is the lane count not the thing that matters?',
               },
             ].map((c) => (
               <Panel key={c.n}>
@@ -240,27 +252,29 @@ export function Overview({
           <div className="split">
             <div className="prose">
               <div className="eyebrow">The site</div>
-              <h2 className="h2">Why the Sepulveda Pass</h2>
+              <h2 className="h2">Why South Figueroa</h2>
               <p>
-                This {miles.toFixed(1)}-mile stretch of Interstate 405, where it climbs over the
-                Santa Monica Mountains between Sherman Oaks and Westwood, carries around 300,000
-                vehicles a day. It is routinely measured as the most congested stretch of freeway in
-                the United States.
+                This {miles.toFixed(1)}-mile run of Figueroa, from 3rd Street down to 11th, passes
+                the foot of the tallest buildings in the western United States. The{' '}
+                <strong>Wilshire Grand</strong> at 335 m and the <strong>US Bank Tower</strong> at
+                310 m are both on it, and the scene on this site renders their real footprints at
+                their real heights.
               </p>
               <p>
-                It is also the site of one of the most expensive counterexamples in American
-                transport planning. Between 2009 and 2014, Los Angeles spent{' '}
-                <strong>$1.6 billion</strong> widening it — ten miles of construction, a demolished
-                bridge, the weekend the press called &ldquo;Carmageddon.&rdquo; When it reopened,
-                peak northbound travel times were <em>slightly worse</em> than before.
+                That skyline <em>is</em> the demand. All of that floor space empties onto one
+                street twice a day, through ten signalised intersections in under a mile. Figueroa
+                is also a trunk bus route, which puts a 40-foot vehicle in the mix roughly every
+                twenty-second car.
               </p>
               <p>
-                I chose it because the mathematics has something specific and uncomfortable to say
-                about that outcome, and because it is a road I can actually go and sit on.
+                But the real reason I chose a street over a freeway is that a street is a better
+                laboratory. On the 405 you wait for a jam and hope. Here a red light builds one on a
+                ninety-second cycle, releases it, and builds it again — so the backward wave can be
+                watched on demand, over and over, from the kerb.
               </p>
             </div>
 
-            <Panel title="The corridor, geometrically">
+            <Panel title="The street, geometrically">
               <table className="table">
                 <thead>
                   <tr>
@@ -274,12 +288,20 @@ export function Overview({
                     <td style={{ textAlign: 'right' }}>{miles.toFixed(2)} mi</td>
                   </tr>
                   <tr>
-                    <td>Measurement points</td>
+                    <td>Signalised intersections</td>
                     <td style={{ textAlign: 'right' }}>{analysis.stations.length}</td>
                   </tr>
                   <tr>
-                    <td>Lanes (narrowest point)</td>
-                    <td style={{ textAlign: 'right' }}>4</td>
+                    <td>Lanes (narrowest block)</td>
+                    <td style={{ textAlign: 'right' }}>3</td>
+                  </tr>
+                  <tr>
+                    <td>Real buildings rendered</td>
+                    <td style={{ textAlign: 'right' }}>{BUILDING_COUNT}</td>
+                  </tr>
+                  <tr>
+                    <td>Tallest neighbour</td>
+                    <td style={{ textAlign: 'right' }}>Wilshire Grand · 335 m</td>
                   </tr>
                   <tr>
                     <td>Effective vehicle length L</td>

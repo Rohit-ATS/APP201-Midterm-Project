@@ -7,7 +7,7 @@ import { BOTTLENECK, CORRIDOR_LENGTH } from '../../data/corridor';
 /**
  * THE CORRIDOR PROFILE
  *
- * Speed against distance down the pass, right now.
+ * Speed against distance down the street, right now.
  *
  * This is the chart that shows the asymmetry a single average would hide.
  * Upstream of the Skirball crest the line is on the floor. Downstream it
@@ -46,9 +46,9 @@ export function CorridorProfile({
     <Figure
       caption={
         <>
-          Southbound, from the 101 at the left to Wilshire at the right. The arrows under the axis
+          Southbound, from 3rd Street at the left to 11th at the right. The arrows under the axis
           are the boundaries between neighbouring traffic states, drawn in the direction they are
-          travelling. Yellow arrows point backwards up the freeway — those are queues growing
+          travelling. Yellow arrows point backwards up the street — those are queues growing
           toward the cars that have not arrived yet.
         </>
       }
@@ -67,6 +67,7 @@ export function CorridorProfile({
             yLabel="Speed — mph"
             grid="y"
             yFormat={(v) => String(Math.round(v))}
+            xFormat={(v) => v.toFixed(2)}
           />
           <text
             className="chart-axis-label"
@@ -74,7 +75,7 @@ export function CorridorProfile({
             y={baseline + 48}
             textAnchor="middle"
           >
-            Miles south of the US-101 interchange
+            Miles south of 3rd Street
           </text>
 
           {/* free-flow reference */}
