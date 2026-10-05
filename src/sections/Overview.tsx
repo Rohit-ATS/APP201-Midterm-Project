@@ -5,7 +5,6 @@ import type { TrafficHook } from '../lib/useTraffic';
 import type { SimulationHook } from '../lib/useSimulation';
 import { mpsToMph, waveSpeed, mToFt } from '../lib/trafficMath';
 import { CORRIDOR_LENGTH } from '../data/corridor';
-import { BUILDING_COUNT } from '../components/scene/Buildings';
 
 export function Overview({
   traffic,
@@ -33,6 +32,7 @@ export function Overview({
             colorMode="paint"
             selectedId={null}
             onSelect={() => {}}
+            showBuildings={false}
             style={{ width: '100%', height: '100%' }}
           />
         </div>
@@ -370,8 +370,8 @@ export function Overview({
                     <td style={{ textAlign: 'right' }}>3</td>
                   </tr>
                   <tr>
-                    <td>Real buildings rendered</td>
-                    <td style={{ textAlign: 'right' }}>{BUILDING_COUNT}</td>
+                    <td>Real street ways mapped</td>
+                    <td style={{ textAlign: 'right' }}>1,955</td>
                   </tr>
                   <tr>
                     <td>Tallest neighbour</td>

@@ -4,7 +4,7 @@ import { CorridorProfile } from '../components/charts/CorridorProfile';
 import { FundamentalDiagramChart } from '../components/charts/FundamentalDiagram';
 import { RoadScene, type CameraMode, type ColorMode } from '../components/scene/RoadScene';
 import { VehicleInspector } from '../components/VehicleInspector';
-import { BUILDING_COUNT, BUILDINGS_REMOVED } from '../components/scene/Buildings';
+import { BUILDING_COUNT } from '../components/scene/Buildings';
 import type { TrafficHook } from '../lib/useTraffic';
 import type { SimulationHook } from '../lib/useSimulation';
 import {
@@ -40,7 +40,11 @@ export function LiveCorridor({
   const [cameraMode, setCameraMode] = useState<CameraMode>('street');
   const [colorMode, setColorMode] = useState<ColorMode>('paint');
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [showBuildings, setShowBuildings] = useState(true);
+  // Buildings are off by default. They are real OpenStreetMap footprints and
+  // they are accurate, but 300 m towers either side of a street canyon hide
+  // the one thing the view exists to show, which is the traffic. The toggle
+  // keeps them one click away.
+  const [showBuildings, setShowBuildings] = useState(false);
   const rightColRef = useRef<HTMLDivElement>(null);
 
   // Bring the inspector into view when a vehicle is picked: on a short screen
@@ -152,13 +156,7 @@ export function LiveCorridor({
 
               <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>
                 {reading.note ??
-                  `${BUILDING_COUNT} real OpenStreetMap buildings beside the real OSM centreline of Figueroa` +
-                    (reading.centerlineSource === 'gps'
-                      ? `, refined by ${reading.gpsPointCount.toLocaleString()} GPS points returned live by TomTom.`
-                      : '.') +
-                    (BUILDINGS_REMOVED > 0
-                      ? ` ${BUILDINGS_REMOVED} footprint${BUILDINGS_REMOVED === 1 ? '' : 's'} overlapping the roadway removed.`
-                      : '')}
+                  `The real street layout of downtown LA, ${reading.centerlineSource === 'gps' ? `with Figueroa itself placed by ${reading.gpsPointCount.toLocaleString()} GPS points returned live by TomTom` : 'from OpenStreetMap'}. Buildings are hidden so you can see the traffic — the button below puts them back.`}
               </p>
             </Panel>
 
@@ -293,7 +291,7 @@ export function LiveCorridor({
                 </button>
               </div>
               <p className="muted" style={{ fontSize: 11.5, margin: '10px 2px 0', lineHeight: 1.5 }}>
-                Real street, real buildings, real signal timing, and the clock runs at{' '}
+                Real street, real signal timing, and the clock runs at{' '}
                 <strong>real time</strong> — a car doing {mpsToMph(analysis.meanSpeed).toFixed(0)} mph
                 on screen is crossing a block in the time it really takes. Each vehicle&rsquo;s
                 free-flow speed comes from what TomTom reports for the block it is on, so the
@@ -493,9 +491,10 @@ export function LiveCorridor({
             <Panel>
               <strong style={{ display: 'block', marginBottom: 8 }}>The street is real</strong>
               <p style={{ fontSize: 13.5, margin: 0 }}>
-                The road mesh is built from the GPS trace TomTom returns with each reading, and the{' '}
-                {BUILDING_COUNT} buildings are real OpenStreetMap footprints at their real heights,
-                in the same metre grid. The Wilshire Grand is 335 m here because it is 335 m.
+                The road is built from the GPS trace TomTom returns with each reading, laid on the
+                real street grid of downtown — the cross streets, the 110 ramps, the sidewalks. The{' '}
+                {BUILDING_COUNT} buildings around it are real too, at their real heights, but they
+                are hidden by default because 300 m towers either side of a street hide the traffic.
               </p>
             </Panel>
             <Panel>

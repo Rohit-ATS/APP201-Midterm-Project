@@ -17,7 +17,7 @@ That number isn't measured. It's a car's length divided by a driver's reaction t
 
 ![Live traffic](https://img.shields.io/badge/traffic-live%20from%20TomTom-0ca30c?style=flat-square)
 ![Maths checks](https://img.shields.io/badge/maths%20checks-26%20passing-199e70?style=flat-square)
-![Buildings](https://img.shields.io/badge/real%20buildings-376-9085e9?style=flat-square)
+![Signals](https://img.shields.io/badge/live%20signals-10%20intersections-9085e9?style=flat-square)
 ![Street network](https://img.shields.io/badge/real%20OSM%20ways-1%2C955-d95926?style=flat-square)
 ![Course](https://img.shields.io/badge/APP201-Geometry%20in%20the%20World-c98500?style=flat-square)
 
@@ -109,13 +109,13 @@ That's the point I most wanted to make. The model isn't a statement about traffi
 
 ## 🌆 Everything here is real
 
-![Downtown from above](docs/images/03-aerial.png)
+![The street from above](docs/images/03-aerial.png)
 
 | What | Where it comes from |
 |:--|:--|
 | 🚦 **Traffic speeds** | TomTom live, all 10 intersections, refreshed every 2 minutes |
 | 🛣️ **The street** | The real OpenStreetMap centreline of S Figueroa, nudged by the GPS points TomTom returns |
-| 🏙️ **376 buildings** | Real OSM footprints at their real heights — the Wilshire Grand is 335 m because it is |
+| 🏙️ **376 buildings** | Real OSM footprints at real heights — off by default, because 300 m towers either side of a street hide the traffic. The button puts them back |
 | 🗺️ **1,955 street ways** | The cross-street grid, the 110 ramps, 921 sidewalks, Pershing Square |
 | ⏱️ **Signal timing** | 90-second cycles on an offset progression, how LADOT runs the downtown grid |
 | 🚗 **The cars** | Simulated — a traffic API tells you how fast things move, never what they are. Types are drawn from the real downtown mix at true sizes |

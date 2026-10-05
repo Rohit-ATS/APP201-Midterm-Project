@@ -475,7 +475,7 @@ export function RoadScene({
   colorMode,
   selectedId,
   onSelect,
-  showBuildings = true,
+  showBuildings = false,
   showLabels = true,
   className,
   style,
