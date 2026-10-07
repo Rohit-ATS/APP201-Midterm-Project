@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { TrafficHook } from '../lib/useTraffic';
 import { ProofScene } from '../proof/ProofScene';
-import { ProofOverlay } from '../proof/ProofOverlay';
+import { ProofOverlay, spaceTimeLayer } from '../proof/ProofOverlay';
 import { brakeScenario, queueScenario } from '../proof/newell';
-import { CHAPTER_STARTS, TOTAL_LEN, publish, story, storyFromScroll } from '../proof/story';
+import { CHAPTERS, CHAPTER_STARTS, TOTAL_LEN, publish, story, storyFromScroll } from '../proof/story';
 import { WILSHIRE } from '../proof/beats';
 
 /**
@@ -41,12 +41,37 @@ export function Proof({
     // ?at=4.5 pins the film halfway through chapter 4 — for taking stills
     const pinned = Number.parseFloat(new URLSearchParams(window.location.search).get('at') ?? '');
     if (Number.isFinite(pinned)) story.snap = true;
+    // ?perf plays the whole film on its own and reports frame times per chapter
+    const perfArg = new URLSearchParams(window.location.search).get('perf');
+    const perf = perfArg !== null ? { t0: 0, warm: Number(perfArg) || 3, frames: [] as number[][] } : null;
 
     const loop = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.1);
+      const raw = now - last;
+      const dt = Math.min(raw / 1000, 0.1);
       last = now;
       const el = track.current;
-      if (el) {
+      if (perf) {
+        perf.t0 ||= now;
+        const s = (now - perf.t0) / 1000 - perf.warm; // let loading finish first
+        story.target = Math.max(0, Math.min(s / 2.2, CHAPTERS.length - 0.001));
+        if (s > 0) (perf.frames[Math.floor(story.current)] ??= []).push(raw);
+        if (s / 2.2 > CHAPTERS.length + 0.5 && !document.getElementById('perf')) {
+          const out = document.createElement('pre');
+          out.id = 'perf';
+          out.textContent = JSON.stringify(
+            perf.frames.map((f, i) => {
+              const sorted = [...f].sort((a, b) => a - b);
+              return {
+                ch: CHAPTERS[i]?.id,
+                avg: +(f.reduce((a, b) => a + b, 0) / f.length).toFixed(1),
+                p95: +sorted[Math.floor(sorted.length * 0.95)].toFixed(1),
+                max: +sorted[sorted.length - 1].toFixed(1),
+              };
+            }),
+          );
+          document.body.appendChild(out);
+        }
+      } else if (el) {
         const screens = -el.getBoundingClientRect().top / window.innerHeight;
         story.target = Number.isFinite(pinned) ? pinned : storyFromScroll(Math.max(0, screens));
       }
@@ -59,6 +84,13 @@ export function Proof({
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  // build the space-time chart while the browser is idle, not when step 7 arrives
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 600));
+    const id = idle(() => spaceTimeLayer(data.brake));
+    return () => (window.cancelIdleCallback ?? window.clearTimeout)(id);
+  }, [data.brake]);
 
   const jump = useCallback((i: number) => {
     const el = track.current;

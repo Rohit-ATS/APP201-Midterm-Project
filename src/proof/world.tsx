@@ -13,7 +13,7 @@
  * Everything here is scenery. The mathematics lives in the cars.
  */
 
-import { useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Environment, Lightformer, MeshReflectorMaterial } from '@react-three/drei';
 import * as THREE from 'three';
@@ -33,6 +33,23 @@ export const wrap = (x: number, lo: number, hi: number) => {
   const w = hi - lo;
   return ((((x - lo) % w) + w) % w) + lo;
 };
+
+/**
+ * Objects on this layer are drawn by the main camera but skipped by the
+ * wet-road mirror pass. Anything that can't usefully appear in a reflection
+ * (road paint, light pools, wheels, labels, the diagram) lives here, which
+ * roughly halves the cost of drawing the reflection.
+ */
+export const NO_REFLECT = 1;
+
+/** Put a subtree on the NO_REFLECT layer (layers are not inherited, so walk it). */
+export function NoReflect({ children }: { children: ReactNode }) {
+  const g = useRef<THREE.Group>(null);
+  useLayoutEffect(() => {
+    g.current?.traverse((o) => o.layers.set(NO_REFLECT));
+  }, []);
+  return <group ref={g}>{children}</group>;
+}
 
 /** A soft round glow, used for every light pool and distant light. */
 export function useGlowTexture() {
@@ -61,7 +78,7 @@ export function useGlowTexture() {
  * The asphalt, its markings, and the streetlights. `roll()` returns how far
  * the world should slide under a camera that is travelling with a car.
  */
-export function Boulevard({ roll }: { roll: () => number }) {
+export function Boulevard({ roll, mirror = true }: { roll: () => number; mirror?: boolean }) {
   const glowTex = useGlowTexture();
   const group = useRef<THREE.Group>(null);
   const span = CITY_TILE * 7;
@@ -139,8 +156,9 @@ export function Boulevard({ roll }: { roll: () => number }) {
       {/* wet asphalt */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0]}>
         <planeGeometry args={[span, ROAD_HALF * 2 + 1.2]} />
+        {mirror ? (
         <MeshReflectorMaterial
-          resolution={1024}
+          resolution={512}
           mirror={0.75}
           blur={[420, 90]}
           mixBlur={1}
@@ -153,7 +171,12 @@ export function Boulevard({ roll }: { roll: () => number }) {
           metalness={0.55}
           color="#141519"
         />
+        ) : (
+          // lighter tier: glossy asphalt that picks up the night environment, no second render pass
+          <meshStandardMaterial color="#15161a" roughness={0.32} metalness={0.6} envMapIntensity={0.9} />
+        )}
       </mesh>
+      <NoReflect>
       {/* kerbs and sidewalks */}
       {[1, -1].map((side) => (
         <mesh key={side} position={[0, 0.09, side * (ROAD_HALF + 2.4)]}>
@@ -178,12 +201,15 @@ export function Boulevard({ roll }: { roll: () => number }) {
           <meshBasicMaterial color={l.c} />
         </mesh>
       ))}
+      </NoReflect>
       <group ref={group}>
-        <primitive object={dashes} />
+        <NoReflect>
+          <primitive object={dashes} />
+          <primitive object={lights.pool} />
+        </NoReflect>
         <primitive object={lights.pole} />
         <primitive object={lights.arm} />
         <primitive object={lights.head} />
-        <primitive object={lights.pool} />
       </group>
     </group>
   );

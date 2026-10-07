@@ -20,6 +20,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { NO_REFLECT } from './world';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /* ------------------------------------------------------------------ */
@@ -201,7 +202,9 @@ function addRepaint(material: THREE.MeshPhysicalMaterial, key: [number, number, 
         }`,
       );
   };
-  material.customProgramCacheKey = () => `repaint-${key.join(',')}`;
+  // the shader text is identical for every model (the key colour is a uniform),
+  // so all repainted models share one compiled program
+  material.customProgramCacheKey = () => 'repaint-v1';
 }
 
 export function useFleet(): Prepared[] {
@@ -241,6 +244,20 @@ const _m = new THREE.Matrix4();
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _h = new THREE.Vector3();
+/** Flag an instanced attribute for upload, limited to the first `n` values. Skips empty ones. */
+export function markUsed(attr: THREE.BufferAttribute, n: number) {
+  if (n <= 0) return;
+  attr.clearUpdateRanges();
+  attr.addUpdateRange(0, n);
+  attr.needsUpdate = true;
+}
+
+function wheelMatrix(hub: THREE.Vector3, sx: number, u: number, q: THREE.Quaternion, c: VehicleDraw) {
+  _h.set(hub.x * sx, hub.y * u, hub.z * u).applyQuaternion(q);
+  _p.set(c.x + _h.x, _h.y, c.z + _h.z);
+  return _m.compose(_p, q, _s);
+}
+
 const FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 const NOFLIP = new THREE.Quaternion();
 
@@ -259,11 +276,15 @@ export function Fleet({ fleet, max, getCars }: { fleet: Prepared[]; max: number;
   );
   const paintAttrs = fleet.map((f) => f.paint);
 
+  // reused every frame: per-model counters for bodies and left/right wheels
+  const counters = useMemo(() => ({ b: new Int32Array(fleet.length), l: new Int32Array(fleet.length), r: new Int32Array(fleet.length) }), [fleet]);
+
   useFrame(() => {
     const { list, n } = getCars();
-    const counts = new Array(fleet.length).fill(0);
-    const wl = new Array(fleet.length).fill(0);
-    const wr = new Array(fleet.length).fill(0);
+    const { b: counts, l: wl, r: wr } = counters;
+    counts.fill(0);
+    wl.fill(0);
+    wr.fill(0);
     for (let i = 0; i < n; i++) {
       const c = list[i];
       const k = c.kind;
@@ -277,41 +298,39 @@ export function Fleet({ fleet, max, getCars }: { fleet: Prepared[]; max: number;
       _s.set(sx, u, u);
       _m.compose(_p, q, _s);
       B.setMatrixAt(counts[k], _m);
-      const pa = paintAttrs[k];
-      pa.setXYZW(counts[k], c.paint.r, c.paint.g, c.paint.b, c.repaint ? 1 : 0);
+      paintAttrs[k].setXYZW(counts[k], c.paint.r, c.paint.g, c.paint.b, c.repaint ? 1 : 0);
       counts[k]++;
 
       // wheels: positioned on the stretched body, scaled uniformly so they stay round
       _s.set(u, u, u);
-      for (const [hubs, mesh, ctr] of [
-        [spec.hubsL, wheelsL.current[k], wl],
-        [spec.hubsR, wheelsR.current[k], wr],
-      ] as const) {
-        if (!mesh) continue;
-        for (const hub of hubs) {
-          _h.set(hub.x * sx, hub.y * u, hub.z * u).applyQuaternion(q);
-          _p.set(c.x + _h.x, _h.y, c.z + _h.z);
-          _m.compose(_p, q, _s);
-          if (ctr[k] < max * 3) mesh.setMatrixAt(ctr[k]++, _m);
-        }
+      const L = wheelsL.current[k];
+      const R = wheelsR.current[k];
+      if (L) for (const hub of spec.hubsL) if (wl[k] < max * 3) L.setMatrixAt(wl[k]++, wheelMatrix(hub, sx, u, q, c));
+      if (R) for (const hub of spec.hubsR) if (wr[k] < max * 3) R.setMatrixAt(wr[k]++, wheelMatrix(hub, sx, u, q, c));
+    }
+    for (let k = 0; k < fleet.length; k++) {
+      // upload only the instances in use, not the whole buffer
+      const B = bodies.current[k];
+      // a model with no cars this frame is skipped entirely, not drawn zero times
+      if (B) {
+        B.visible = counts[k] > 0;
+        B.count = counts[k];
+        markUsed(B.instanceMatrix, counts[k] * 16);
+        markUsed(paintAttrs[k], counts[k] * 4);
+      }
+      const L = wheelsL.current[k];
+      if (L) {
+        L.visible = wl[k] > 0;
+        L.count = wl[k];
+        markUsed(L.instanceMatrix, wl[k] * 16);
+      }
+      const R = wheelsR.current[k];
+      if (R) {
+        R.visible = wr[k] > 0;
+        R.count = wr[k];
+        markUsed(R.instanceMatrix, wr[k] * 16);
       }
     }
-    fleet.forEach((_, k) => {
-      const B = bodies.current[k];
-      if (B) {
-        B.count = counts[k];
-        B.instanceMatrix.needsUpdate = true;
-        paintAttrs[k].needsUpdate = true;
-      }
-      for (const [mesh, ctr] of [
-        [wheelsL.current[k], wl],
-        [wheelsR.current[k], wr],
-      ] as const) {
-        if (!mesh) continue;
-        mesh.count = ctr[k];
-        mesh.instanceMatrix.needsUpdate = true;
-      }
-    });
   });
 
   return (
@@ -328,6 +347,7 @@ export function Fleet({ fleet, max, getCars }: { fleet: Prepared[]; max: number;
           <instancedMesh
             ref={(el) => {
               wheelsL.current[k] = el;
+              el?.layers.set(NO_REFLECT); // wheels sit under the body; no point reflecting them
             }}
             args={[f.wheelL, wheelMat, max * 3]}
             frustumCulled={false}
@@ -335,6 +355,7 @@ export function Fleet({ fleet, max, getCars }: { fleet: Prepared[]; max: number;
           <instancedMesh
             ref={(el) => {
               wheelsR.current[k] = el;
+              el?.layers.set(NO_REFLECT);
             }}
             args={[f.wheelR, wheelMat, max * 3]}
             frustumCulled={false}

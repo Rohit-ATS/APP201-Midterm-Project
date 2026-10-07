@@ -6,7 +6,7 @@
  * number on it is computed from the same model the cars are following.
  */
 
-import { useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import {
   fundamentalDiagram,
   mpsToMph,
@@ -45,7 +45,6 @@ function R({ p, at, children, className = '', style }: { p: number; at: number; 
         ...style,
         opacity: k,
         transform: `translateY(${(1 - k) * 18}px)`,
-        filter: k < 1 ? `blur(${(1 - k) * 6}px)` : undefined,
       }}
     >
       {children}
@@ -54,8 +53,9 @@ function R({ p, at, children, className = '', style }: { p: number; at: number; 
 }
 
 /** A number that rolls to its value. */
-const fmt = (n: number, d = 0) =>
-  n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+// one formatter per precision: toLocaleString with options builds a new one on every call
+const FORMATS = [0, 1, 2].map((d) => new Intl.NumberFormat(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }));
+const fmt = (n: number, d = 0) => FORMATS[d].format(n);
 
 function Card({ p, step, title, children, wide }: { p: number; step: string; title: string; children: ReactNode; wide?: boolean }) {
   const inK = easeOut(span(p, 0.0, 0.08));
@@ -92,7 +92,8 @@ function SpacingMini({ params, v, reveal }: { params: TrafficParams; v: number; 
       <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H - pad.b} className="p-axis" />
       <text x={W - pad.r} y={H - 8} className="p-tick" textAnchor="end">speed v →</text>
       <text x={pad.l - 6} y={pad.t + 8} className="p-tick" textAnchor="end">s</text>
-      <line x1={X(0)} y1={Y(spacingAt(0, params))} x2={X(lineEnd)} y2={Y(spacingAt(lineEnd, params))} stroke="var(--series-1)" strokeWidth={3} className="p-glowline" />
+      <line x1={X(0)} y1={Y(spacingAt(0, params))} x2={X(lineEnd)} y2={Y(spacingAt(lineEnd, params))} className="p-glowline-under" />
+      <line x1={X(0)} y1={Y(spacingAt(0, params))} x2={X(lineEnd)} y2={Y(spacingAt(lineEnd, params))} stroke="var(--series-1)" strokeWidth={3} />
       <circle cx={X(0)} cy={Y(params.L)} r={4} fill="var(--series-4)" />
       <text x={X(0) + 8} y={Y(params.L) + 14} className="p-tick" fill="var(--series-4)">L (intercept)</text>
       <text x={X(vMax * 0.45)} y={Y(spacingAt(vMax * 0.45, params)) - 14} className="p-tick" fill="var(--series-1)" textAnchor="end">slope = τ</text>
@@ -106,81 +107,123 @@ const ST = { W: 340, H: 170, pad: { l: 30, r: 8, t: 8, b: 24 }, xMin: -420, xMax
 const stX = (tt: number, T: number) => ST.pad.l + (tt / T) * (ST.W - ST.pad.l - ST.pad.r);
 const stY = (x: number) => ST.H - ST.pad.b - ((x - ST.xMin) / (ST.xMax - ST.xMin)) * (ST.H - ST.pad.t - ST.pad.b);
 
+const pathCache = new WeakMap<BrakeRun, { d: string; stopped: string }[]>();
+
+/** Every car's trajectory as SVG path data, cached per run. */
+export function spaceTimePaths(brake: BrakeRun) {
+  const hit = pathCache.get(brake);
+  if (hit) return hit;
+  const out: { d: string; stopped: string }[] = [];
+  for (let n = 0; n < brake.x.length; n += 1) {
+    let d = '';
+    let stopped = '';
+    let inStop = false;
+    for (let i = 0; i < brake.steps; i += 4) {
+      const tt = i * brake.dt;
+      const x = brake.x[n][i];
+      if (x < ST.xMin - 40 || x > ST.xMax + 40) continue;
+      const px = stX(tt, brake.duration).toFixed(1);
+      const py = stY(x).toFixed(1);
+      d += d ? `L${px} ${py}` : `M${px} ${py}`;
+      const v = speedAt(brake, n, tt);
+      if (v < 2.5) {
+        stopped += inStop ? `L${px} ${py}` : `M${px} ${py}`;
+        inStop = true;
+      } else inStop = false;
+    }
+    if (d) out.push({ d, stopped });
+  }
+  pathCache.set(brake, out);
+  return out;
+}
+
+/** Space-time diagram: every car's trajectory, drawn up to "now". */
+const layerCache = new WeakMap<BrakeRun, HTMLCanvasElement>();
+const LAYER_SCALE = 2;
+
+/**
+ * Every car's trajectory drawn once into an off-screen canvas. Each frame then
+ * copies only the slice of time revealed so far, which costs almost nothing —
+ * re-rendering 128 clipped SVG paths every frame did not.
+ */
+export function spaceTimeLayer(brake: BrakeRun) {
+  const hit = layerCache.get(brake);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = ST.W * LAYER_SCALE;
+  c.height = ST.H * LAYER_SCALE;
+  const g = c.getContext('2d')!;
+  g.scale(LAYER_SCALE, LAYER_SCALE);
+  g.lineJoin = 'round';
+  const paths = spaceTimePaths(brake);
+  g.strokeStyle = 'rgba(134,182,239,.55)';
+  g.lineWidth = 1;
+  for (const p of paths) g.stroke(new Path2D(p.d));
+  for (const [width, color] of [
+    [7, 'rgba(255,59,59,.22)'],
+    [2.2, '#ff4d4d'],
+  ] as const) {
+    g.strokeStyle = color;
+    g.lineWidth = width;
+    g.lineCap = 'round';
+    for (const p of paths) if (p.stopped) g.stroke(new Path2D(p.stopped));
+  }
+  layerCache.set(brake, c);
+  return c;
+}
+
 /** Space-time diagram: every car's trajectory, drawn up to "now". */
 function SpaceTime({ brake, params, t }: { brake: BrakeRun; params: TrafficParams; t: number }) {
   const { W, H, pad } = ST;
   const T = brake.duration;
   const X = (tt: number) => stX(tt, T);
   const Y = stY;
-
-  // trajectories are fixed — build them once, then reveal with a clip
-  const paths = useMemo(() => {
-    const out: { d: string; stopped: string }[] = [];
-    for (let n = 0; n < brake.x.length; n += 1) {
-      let d = '';
-      let stopped = '';
-      let inStop = false;
-      for (let i = 0; i < brake.steps; i += 4) {
-        const tt = i * brake.dt;
-        const x = brake.x[n][i];
-        if (x < ST.xMin - 40 || x > ST.xMax + 40) continue;
-        const px = stX(tt, brake.duration).toFixed(1);
-        const py = stY(x).toFixed(1);
-        d += d ? `L${px} ${py}` : `M${px} ${py}`;
-        const v = speedAt(brake, n, tt);
-        if (v < 2.5) {
-          stopped += inStop ? `L${px} ${py}` : `M${px} ${py}`;
-          inStop = true;
-        } else inStop = false;
-      }
-      if (d) out.push({ d, stopped });
-    }
-    return out;
-  }, [brake]);
+  const canvas = useRef<HTMLCanvasElement>(null);
 
   const w = params.L / params.tau;
   const t0 = brake.stopAt;
   const tEnd = Math.min(t, T);
   const showWave = t > t0;
+
+  useLayoutEffect(() => {
+    const c = canvas.current;
+    const g = c?.getContext('2d');
+    if (!c || !g) return;
+    const layer = spaceTimeLayer(brake);
+    g.clearRect(0, 0, c.width, c.height);
+    const sw = Math.max(1, Math.round(stX(tEnd, T) * LAYER_SCALE));
+    g.drawImage(layer, 0, 0, sw, layer.height, 0, 0, sw, layer.height);
+  }, [brake, tEnd, T]);
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="p-chart">
-      <defs>
-        <clipPath id="st-clip">
-          <rect x={0} y={0} width={X(tEnd)} height={H} />
-        </clipPath>
-      </defs>
-      <line x1={pad.l} y1={H - pad.b} x2={W - pad.r} y2={H - pad.b} className="p-axis" />
-      <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H - pad.b} className="p-axis" />
-      <text x={W - pad.r} y={H - 6} className="p-tick" textAnchor="end">time →</text>
-      <text x={0} y={0} className="p-tick" textAnchor="end" transform={`translate(${pad.l - 8} ${pad.t}) rotate(-90)`}>
-        ← position along the street
-      </text>
-      <g clipPath="url(#st-clip)">
-        {paths.map((pth, i) => (
-          <path key={i} d={pth.d} fill="none" stroke="rgba(134,182,239,.55)" strokeWidth={1} />
-        ))}
-        {paths.map((pth, i) =>
-          pth.stopped ? <path key={`s${i}`} d={pth.stopped} fill="none" stroke="#ff4d4d" strokeWidth={2.2} className="p-glowline-red" /> : null,
-        )}
-      </g>
-      {showWave && (
-        <line
-          x1={X(t0)}
-          y1={Y(brake.stopX)}
-          x2={X(tEnd)}
-          y2={Y(brake.stopX - w * (tEnd - t0))}
-          stroke="#fff"
-          strokeWidth={2}
-          strokeDasharray="5 4"
-        />
-      )}
-      {showWave && (
-        <text x={X(tEnd) - 4} y={Y(brake.stopX - w * (tEnd - t0)) + 16} className="p-tick" fill="#fff" textAnchor="end">
-          slope = −L/τ
+    <div className="p-chart p-chart-stack">
+      <canvas ref={canvas} width={W * LAYER_SCALE} height={H * LAYER_SCALE} />
+      <svg viewBox={`0 0 ${W} ${H}`}>
+        <line x1={pad.l} y1={H - pad.b} x2={W - pad.r} y2={H - pad.b} className="p-axis" />
+        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H - pad.b} className="p-axis" />
+        <text x={W - pad.r} y={H - 6} className="p-tick" textAnchor="end">time →</text>
+        <text x={0} y={0} className="p-tick" textAnchor="end" transform={`translate(${pad.l - 8} ${pad.t}) rotate(-90)`}>
+          ← position along the street
         </text>
-      )}
-      <line x1={X(tEnd)} y1={pad.t} x2={X(tEnd)} y2={H - pad.b} stroke="rgba(255,255,255,.25)" />
-    </svg>
+        {showWave && (
+          <line
+            x1={X(t0)}
+            y1={Y(brake.stopX)}
+            x2={X(tEnd)}
+            y2={Y(brake.stopX - w * (tEnd - t0))}
+            stroke="#fff"
+            strokeWidth={2}
+            strokeDasharray="5 4"
+          />
+        )}
+        {showWave && (
+          <text x={X(tEnd) - 4} y={Y(brake.stopX - w * (tEnd - t0)) + 16} className="p-tick" fill="#fff" textAnchor="end">
+            slope = −L/τ
+          </text>
+        )}
+        <line x1={X(tEnd)} y1={pad.t} x2={X(tEnd)} y2={H - pad.b} stroke="rgba(255,255,255,.25)" />
+      </svg>
+    </div>
   );
 }
 
@@ -222,7 +265,7 @@ function Chapter({ id, p, d, onNavigate }: { id: ChapterId; p: number; d: Overla
     case 'intro': {
       const out = span(p, 0.55, 0.95);
       return (
-        <div className="p-hero" style={{ opacity: 1 - out, transform: `scale(${1 + out * 0.15})`, filter: out > 0 ? `blur(${out * 8}px)` : undefined }}>
+        <div className="p-hero" style={{ opacity: 1 - out, transform: `scale(${1 + out * 0.15})` }}>
           <div className="p-kicker">The proof, animated · scroll slowly</div>
           <h1 className="p-display">
             {'Watch the math'.split('').map((ch, i) => (
@@ -648,7 +691,7 @@ export function ProofOverlay({ data, onNavigate, onJump }: { data: OverlayData; 
 
   return (
     <>
-      <div className="proof-flash" style={{ opacity: flash * 0.9 }} />
+      <div className="proof-flash" style={{ opacity: flash * 0.9, display: flash > 0.001 ? undefined : 'none' }} />
       <div className="p-overlay">
         <Chapter key={id} id={id} p={p} d={data} onNavigate={onNavigate} />
       </div>

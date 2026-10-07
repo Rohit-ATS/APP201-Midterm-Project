@@ -14,9 +14,9 @@
  * is up, z is across the road. Forward lanes are on +z, nearest the camera.
  */
 
-import { Suspense, useMemo, useRef } from 'react';
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Html, Stars } from '@react-three/drei';
+import { Html, PerformanceMonitor, Stars } from '@react-three/drei';
 import { Bloom, ChromaticAberration, EffectComposer, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction, type ChromaticAberrationEffect } from 'postprocessing';
 import * as THREE from 'three';
@@ -28,10 +28,10 @@ import {
 } from '../lib/trafficMath';
 import { meanVehicleLength, VEHICLE_CLASSES } from '../data/vehicleMix';
 import { posAt, speedAt, accelAt, type BrakeRun, type QueueRun } from './newell';
-import { story, split, span, easeInOut, easeOut, lerp, clamp01, CHAPTERS, type ChapterId } from './story';
+import { story, split, span, easeInOut, easeOut, lerp, clamp01, CHAPTERS, useChapter, type ChapterId } from './story';
 import { answerTime, flipPerMile, greenTime, heroSpeed, jamTime, MILE, sweepK } from './beats';
-import { Fleet, KIND, dimsFor, paintFor, useFleet } from './vehicles';
-import { Boulevard, NightEnvironment, Skyline, Sky, useGlowTexture, wrap } from './world';
+import { Fleet, KIND, dimsFor, markUsed, paintFor, useFleet } from './vehicles';
+import { Boulevard, NightEnvironment, NoReflect, NO_REFLECT, Skyline, Sky, useGlowTexture, wrap } from './world';
 
 /* ------------------------------------------------------------------ */
 /* palette (the site's series colours, pushed past 1.0 where they glow) */
@@ -220,6 +220,9 @@ const CARD_CHAPTERS: ChapterId[] = ['own', 'gap', 'flip', 'flow', 'triangle', 's
 function Director({ data }: { data: SceneData }) {
   const { camera, size } = useThree();
   const look = useRef(new THREE.Vector3());
+  useLayoutEffect(() => {
+    camera.layers.enable(NO_REFLECT);
+  }, [camera]);
   const shift = useRef(0);
 
   useFrame((_, dt) => {
@@ -314,6 +317,19 @@ const LEN_OF: Record<number, number> = {
   [KIND.suv]: 4.9,
   [KIND['suv-luxury']]: 5.0,
 };
+
+const NO_REFLECT_LAYERS = (() => {
+  const l = new THREE.Layers();
+  l.set(NO_REFLECT);
+  return l;
+})();
+
+const _lightMeshes: Array<[THREE.InstancedMesh, number]> = [];
+function LIGHT_MESHES(T: THREE.InstancedMesh, H: THREE.InstancedMesh, P: THREE.InstancedMesh, n: number, pools: number) {
+  _lightMeshes.length = 0;
+  _lightMeshes.push([T, n], [H, n], [P, pools]);
+  return _lightMeshes;
+}
 
 function Cars({ data }: { data: SceneData }) {
   const fleet = useFleet();
@@ -509,11 +525,12 @@ function Cars({ data }: { data: SceneData }) {
       P.setMatrixAt(pi, m.matrix);
       P.setColorAt(pi++, tmp.copy(C.red).multiplyScalar(0.16 * c.tail));
     }
-    for (const mesh of [T, H]) mesh.count = n;
+    T.count = n;
+    H.count = n;
     P.count = pi;
-    for (const mesh of [T, H, P]) {
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    for (const [mesh, used] of LIGHT_MESHES(T, H, P, n, pi)) {
+      markUsed(mesh.instanceMatrix, used * 16);
+      if (mesh.instanceColor) markUsed(mesh.instanceColor, used * 3);
     }
   });
 
@@ -528,7 +545,7 @@ function Cars({ data }: { data: SceneData }) {
         <boxGeometry />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
-      <instancedMesh ref={pools} args={[undefined, undefined, MAX_CARS * 2]} frustumCulled={false}>
+      <instancedMesh ref={pools} args={[undefined, undefined, MAX_CARS * 2]} frustumCulled={false} layers={NO_REFLECT_LAYERS}>
         <planeGeometry />
         <meshBasicMaterial map={glowTex} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </instancedMesh>
@@ -576,10 +593,38 @@ function Bar({ refObj, color }: { refObj: React.RefObject<THREE.Mesh | null>; co
 }
 
 /** Show/hide and fade an <Html> label from inside the frame loop. */
+const labelState = new WeakMap<HTMLDivElement, { o: number; t: string }>();
+
 function setLabel(el: HTMLDivElement | null, opacity: number, text?: string) {
   if (!el) return;
-  el.style.opacity = String(clamp01(opacity));
-  if (text !== undefined && el.textContent !== text) el.textContent = text;
+  // write to the DOM only when something changed: every style write costs a style recalc
+  const o = Math.round(clamp01(opacity) * 100) / 100;
+  const last = labelState.get(el) ?? { o: -1, t: '' };
+  if (o !== last.o) {
+    el.style.opacity = String(o);
+    el.style.visibility = o > 0 ? 'visible' : 'hidden';
+    last.o = o;
+  }
+  if (text !== undefined && text !== last.t) {
+    el.textContent = text;
+    last.t = text;
+  }
+  labelState.set(el, last);
+}
+
+/**
+ * A text label pinned to a point in the scene. It only exists while one of its
+ * chapters is on screen; a mounted label is re-projected every frame even when
+ * invisible, so the other chapters' labels would be pure cost.
+ */
+function Label({ on, children }: { on: ChapterId[]; children: React.ReactNode }) {
+  const id = useChapter();
+  if (!on.includes(id)) return null;
+  return (
+    <Html center zIndexRange={[5, 0]}>
+      {children}
+    </Html>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -654,24 +699,24 @@ function Ruler({ data }: { data: SceneData }) {
         <Bar key={i} refObj={t} color={glow(C.white, 2)} />
       ))}
       <group ref={gLabB}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['own', 'gap']}>
           <div ref={lb} className="p3-label" />
-        </Html>
+        </Label>
       </group>
       <group ref={gLabG}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['own', 'gap']}>
           <div ref={lg} className="p3-label p3-yellow" />
-        </Html>
+        </Label>
       </group>
       <group ref={gLabV}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['own', 'gap']}>
           <div ref={lv} className="p3-label p3-blue" />
-        </Html>
+        </Label>
       </group>
       <group ref={gLabS}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['own', 'gap']}>
           <div ref={ls} className="p3-label p3-big" />
-        </Html>
+        </Label>
       </group>
     </group>
   );
@@ -705,9 +750,9 @@ function MileGates() {
         <meshBasicMaterial color={glow(C.aqua, 0.5)} toneMapped={false} transparent opacity={0.22} />
       </mesh>
       <group position={[0, 60, HERO_LANE]}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['flip']}>
           <div ref={la} className="p3-label p3-aqua p3-big">← exactly one mile →</div>
-        </Html>
+        </Label>
       </group>
     </group>
   );
@@ -860,29 +905,29 @@ function Hologram({ data }: { data: SceneData }) {
         <meshBasicMaterial color={glow(C.yellow, 4)} toneMapped={false} transparent side={THREE.DoubleSide} />
       </mesh>
       <group position={[HOLO.x1 + 4, HOLO.y0 - 7, HOLO.z]}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['flow', 'triangle', 'slope']}>
           <div ref={lk} className="p3-label">density k →</div>
-        </Html>
+        </Label>
       </group>
       <group position={[HOLO.x0 - 2, HOLO.y1 + 10, HOLO.z]}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['flow', 'triangle', 'slope']}>
           <div ref={lq} className="p3-label">↑ flow q</div>
-        </Html>
+        </Label>
       </group>
       <group ref={gPeak}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['flow', 'triangle', 'slope']}>
           <div ref={lp} className="p3-label p3-yellow p3-big" />
-        </Html>
+        </Label>
       </group>
       <group ref={gFree}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['flow', 'triangle', 'slope']}>
           <div ref={lf} className="p3-label p3-blue" />
-        </Html>
+        </Label>
       </group>
       <group ref={gCong}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['flow', 'triangle', 'slope']}>
           <div ref={lc} className="p3-label p3-orange" />
-        </Html>
+        </Label>
       </group>
     </group>
   );
@@ -958,22 +1003,35 @@ function Wave({ data }: { data: SceneData }) {
         <meshBasicMaterial color={glow(C.red, 5)} toneMapped={false} transparent side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <group ref={gL}>
-        <Html center zIndexRange={[5, 0]}>
+        <Label on={['jam']}>
           <div ref={lw} className="p3-label p3-red p3-big" />
-        </Html>
+        </Label>
       </group>
     </group>
   );
 }
 
 /** Step 9: the stop line and the signal at Wilshire. */
+/**
+ * Signal lamp colours, made once. (The signal used to carry a real point
+ * light; adding a light changes every shader in the scene, so its arrival
+ * froze the page for over a second. The glow comes from bloom instead.)
+ */
+const LAMP = {
+  redOn: glow(C.red, 6),
+  redOff: new THREE.Color('#2a0a0a'),
+  amberOn: glow(C.yellow, 6),
+  amberOff: new THREE.Color('#2a1d05'),
+  greenOn: new THREE.Color('#2bff8a').multiplyScalar(5),
+  greenOff: new THREE.Color('#06200f'),
+};
+
 function Signal({ data }: { data: SceneData }) {
   const g = useRef<THREE.Group>(null);
   const red = useRef<THREE.MeshBasicMaterial>(null);
   const amber = useRef<THREE.MeshBasicMaterial>(null);
   const green = useRef<THREE.MeshBasicMaterial>(null);
   const line = useRef<THREE.MeshBasicMaterial>(null);
-  const light = useRef<THREE.PointLight>(null);
 
   useFrame(() => {
     const on = frame.id === 'green';
@@ -982,10 +1040,9 @@ function Signal({ data }: { data: SceneData }) {
     const t = frame.t;
     const G = data.queue.green;
     const state = t < 0 ? 'red' : t <= G ? 'green' : t <= G + 3 ? 'amber' : 'red';
-    red.current?.color.set(state === 'red' ? glow(C.red, 6) : new THREE.Color('#2a0a0a'));
-    amber.current?.color.set(state === 'amber' ? glow(C.yellow, 6) : new THREE.Color('#2a1d05'));
-    green.current?.color.set(state === 'green' ? new THREE.Color('#2bff8a').multiplyScalar(5) : new THREE.Color('#06200f'));
-    if (light.current) light.current.color.set(state === 'red' ? '#ff3b3b' : state === 'amber' ? '#ffb000' : '#2bff8a');
+    red.current?.color.copy(state === 'red' ? LAMP.redOn : LAMP.redOff);
+    amber.current?.color.copy(state === 'amber' ? LAMP.amberOn : LAMP.amberOff);
+    green.current?.color.copy(state === 'green' ? LAMP.greenOn : LAMP.greenOff);
     const since = story.clock - frame.gateHit;
     line.current?.color.copy(C.white).multiplyScalar(1.2 + 5 * Math.exp(-since * 6));
   });
@@ -1026,7 +1083,6 @@ function Signal({ data }: { data: SceneData }) {
             </mesh>
           </group>
         ))}
-        <pointLight ref={light} position={[-2, 6, -W / 2]} intensity={60} distance={40} />
       </group>
     </group>
   );
@@ -1036,7 +1092,7 @@ function Signal({ data }: { data: SceneData }) {
 /* post-processing: bloom, and a chromatic tear on every chapter cut   */
 /* ------------------------------------------------------------------ */
 
-function Post() {
+function Post({ high }: { high: boolean }) {
   const ca = useRef<ChromaticAberrationEffect>(null);
   const offset = useMemo(() => new THREE.Vector2(0, 0), []);
   useFrame(() => {
@@ -1044,7 +1100,7 @@ function Post() {
     if (ca.current) ca.current.offset.set(f * 0.012, f * 0.004);
   });
   return (
-    <EffectComposer multisampling={4}>
+    <EffectComposer multisampling={high ? 4 : 0}>
       <Bloom mipmapBlur intensity={1.1} luminanceThreshold={0.75} luminanceSmoothing={0.25} radius={0.82} />
       <ChromaticAberration ref={ca} offset={offset} blendFunction={BlendFunction.NORMAL} radialModulation={false} modulationOffset={0} />
       <Vignette darkness={0.6} offset={0.3} />
@@ -1063,34 +1119,117 @@ function Clock() {
   return null;
 }
 
+/**
+ * Compile every shader in the scene as soon as it has loaded — including the
+ * props for chapters nobody has reached yet — so no chapter stalls the first
+ * time it appears. compileAsync hands the work to the driver's own threads
+ * (KHR_parallel_shader_compile) instead of freezing the page while it runs.
+ */
+function WarmUp() {
+  const { gl, scene, camera } = useThree();
+  useLayoutEffect(() => {
+    let alive = true;
+    // compile for where the scene really draws — the post-processing buffer, not
+    // the screen — or the shader variants won't match and will recompile later
+    const target = new THREE.WebGLRenderTarget(64, 64, { type: THREE.HalfFloatType });
+
+    // make everything drawable: hidden chapter props, empty instanced meshes,
+    // and objects outside the opening camera's view
+    const restore: Array<() => void> = [];
+    const expose = () => {
+      scene.traverse((o) => {
+        if (!o.visible) {
+          o.visible = true;
+          restore.push(() => (o.visible = false));
+        }
+        if (o.frustumCulled) {
+          o.frustumCulled = false;
+          restore.push(() => (o.frustumCulled = true));
+        }
+        const im = o as THREE.InstancedMesh;
+        if (im.isInstancedMesh && im.count === 0) {
+          im.count = 1;
+          restore.push(() => (im.count = 0));
+        }
+      });
+    };
+    const undo = () => {
+      while (restore.length) restore.pop()!();
+    };
+
+    const before = gl.getRenderTarget();
+    expose();
+    gl.setRenderTarget(target);
+    // 1) link every program off the main thread
+    const ready = gl.compileAsync(scene, camera).catch(() => {});
+    gl.setRenderTarget(before);
+    undo();
+
+    // 2) then draw everything once, off-screen: the GPU driver finishes preparing a
+    //    shader only on its first real draw, and that is the stall we are removing
+    void ready.then(() => {
+      if (!alive) return;
+      const prev = gl.getRenderTarget();
+      expose();
+      gl.setRenderTarget(target);
+      gl.render(scene, camera);
+      gl.setRenderTarget(prev);
+      undo();
+      target.dispose();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [gl, scene, camera]);
+  return null;
+}
+
+/**
+ * Start at full quality on a capable machine; if the frame rate sags, drop to
+ * a lighter tier once (resolution 1x, no mirror pass, no MSAA) and stay there
+ * — switching back and forth would itself cause hitches.
+ */
+function startsHigh() {
+  if (typeof window === 'undefined') return true;
+  const cores = navigator.hardwareConcurrency ?? 8;
+  return window.innerWidth >= 760 && cores > 4 && !new URLSearchParams(window.location.search).has('low');
+}
+
 export function ProofScene({ data }: { data: SceneData }) {
+  const [high, setHigh] = useState(startsHigh);
   return (
     <Canvas
-      dpr={[1, 1.75]}
-      gl={{ antialias: false, powerPreference: 'high-performance' }}
+      dpr={high ? [1, 1.5] : 1}
+      gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
       camera={{ fov: 42, near: 0.5, far: 6000, position: [-150, 60, 120] }}
     >
+      <PerformanceMonitor flipflops={1} onDecline={() => setHigh(false)} />
       <color attach="background" args={['#05060b']} />
       <fog attach="fog" args={['#0b0a12', 220, 2400]} />
       <hemisphereLight args={['#6d86c4', '#1a1210', 0.55]} />
       <directionalLight position={[-200, 300, 200]} intensity={0.45} color="#9db8ff" />
       <Sky />
-      <Stars radius={2400} depth={300} count={2500} factor={14} saturation={0} fade speed={0.3} />
+      <NoReflect>
+        <Stars radius={2400} depth={300} count={2500} factor={14} saturation={0} fade speed={0.3} />
+      </NoReflect>
       <NightEnvironment />
       <Clock />
       <Director data={data} />
-      <Boulevard roll={worldRoll} />
-      <Skyline roll={worldRoll} />
       <Suspense fallback={null}>
+        <Boulevard roll={worldRoll} mirror={high} />
+        <Skyline roll={worldRoll} />
         <Cars data={data} />
+        <NoReflect>
+          <Ruler data={data} />
+          <MileGates />
+          <FlowGate />
+          <Hologram data={data} />
+        </NoReflect>
+        <Wave data={data} />
+        <Signal data={data} />
+        <WarmUp />
       </Suspense>
-      <Ruler data={data} />
-      <MileGates />
-      <FlowGate />
-      <Hologram data={data} />
-      <Wave data={data} />
-      <Signal data={data} />
-      <Post />
+      <Post high={high} />
     </Canvas>
   );
 }

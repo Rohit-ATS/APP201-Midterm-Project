@@ -78,6 +78,11 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
+/** React hook: re-render only when the chapter changes, not every frame. */
+export function useChapter(): ChapterId {
+  return useSyncExternalStore(subscribe, () => split(story.current).id);
+}
+
 /** React hook: re-render with the current story position. */
 export function useStory(): number {
   return useSyncExternalStore(subscribe, () => story.current);

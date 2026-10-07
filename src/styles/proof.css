@@ -70,15 +70,12 @@
   overflow: hidden;
   padding: 22px 24px 20px;
   border-radius: 18px;
-  background: linear-gradient(160deg, rgba(18, 22, 32, 0.78), rgba(8, 10, 16, 0.82));
+  background: linear-gradient(160deg, rgba(16, 20, 30, 0.9), rgba(7, 9, 14, 0.93));
   border: 1px solid rgba(140, 180, 255, 0.16);
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px rgba(57, 135, 229, 0.06),
-    0 0 60px rgba(57, 135, 229, 0.08);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  /* no blurred shadows on the card: on first paint they cost more than the whole 3D frame */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  /* no backdrop blur: the 3D canvas behind changes every frame, and
+     re-blurring it each frame is the single most expensive thing CSS can do here */
   will-change: transform, opacity;
 }
 
@@ -159,13 +156,13 @@
 .p-chip-y {
   border-color: var(--series-4);
   color: #ffc94d;
-  box-shadow: 0 0 14px rgba(224, 160, 0, 0.35);
+  background: rgba(224, 160, 0, 0.12);
 }
 
 .p-chip-o {
   border-color: var(--series-2);
   color: #ff9a6b;
-  box-shadow: 0 0 14px rgba(217, 89, 38, 0.35);
+  background: rgba(217, 89, 38, 0.12);
 }
 
 .p-formula {
@@ -177,7 +174,6 @@
   border-left: 3px solid var(--series-1);
   background: linear-gradient(90deg, rgba(57, 135, 229, 0.16), transparent);
   border-radius: 0 10px 10px 0;
-  text-shadow: 0 0 18px rgba(57, 135, 229, 0.6);
 }
 
 .p-formula b {
@@ -187,20 +183,17 @@
 .p-formula-y {
   border-left-color: var(--series-4);
   background: linear-gradient(90deg, rgba(224, 160, 0, 0.16), transparent);
-  text-shadow: 0 0 18px rgba(224, 160, 0, 0.5);
 }
 
 .p-formula-r {
   border-left-color: var(--critical);
   background: linear-gradient(90deg, rgba(255, 59, 59, 0.18), transparent);
-  text-shadow: 0 0 18px rgba(255, 59, 59, 0.5);
   font-size: 15px;
 }
 
 .p-formula-g {
   border-left-color: #2bff8a;
   background: linear-gradient(90deg, rgba(43, 255, 138, 0.12), transparent);
-  text-shadow: 0 0 18px rgba(43, 255, 138, 0.4);
   font-size: 14.5px;
 }
 
@@ -237,7 +230,7 @@
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 22px currentColor;
+  text-shadow: none;
 }
 
 .p-counter-3 .p-big {
@@ -274,7 +267,7 @@
 .p-eq span {
   font-size: 26px;
   font-weight: 800;
-  text-shadow: 0 0 20px currentColor;
+  text-shadow: none;
 }
 
 .p-eq small {
@@ -328,7 +321,6 @@
 .p-algline-hi {
   font-size: 21px;
   margin-bottom: 12px;
-  text-shadow: 0 0 16px rgba(217, 89, 38, 0.6);
 }
 
 .p-hl {
@@ -336,7 +328,7 @@
   padding: 0 4px;
   border-radius: 4px;
   background: rgba(217, 89, 38, 0.2);
-  box-shadow: 0 0 20px rgba(217, 89, 38, 0.45);
+  outline: 1px solid rgba(217, 89, 38, 0.5);
 }
 
 .p-units {
@@ -377,7 +369,6 @@
 .p-units b {
   font-size: 22px;
   color: #fff;
-  text-shadow: 0 0 20px rgba(57, 135, 229, 0.9);
 }
 
 .p-mix {
@@ -422,16 +413,16 @@
   font-family: var(--mono);
 }
 
-.p-glowline {
-  filter: drop-shadow(0 0 6px rgba(57, 135, 229, 0.9));
+.p-glowline-under {
+  stroke: rgba(57, 135, 229, 0.28);
+  stroke-width: 9;
+  stroke-linecap: round;
 }
 
-.p-glowline-red {
-  filter: drop-shadow(0 0 4px rgba(255, 59, 59, 0.9));
-}
 
 .p-pulse {
-  filter: drop-shadow(0 0 8px #fff);
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 6;
 }
 
 /* ---------- 3D labels ---------- */
@@ -448,7 +439,7 @@
   pointer-events: none;
   user-select: none;
   transition: opacity 0.25s;
-  text-shadow: 0 0 10px currentColor;
+  text-shadow: none;
 }
 
 .p3-big {
@@ -520,9 +511,7 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: p-grad 6s linear infinite;
   text-shadow: none;
-  filter: drop-shadow(0 0 24px rgba(144, 133, 233, 0.45));
 }
 
 @keyframes p-grad {
@@ -578,7 +567,7 @@
   letter-spacing: -0.04em;
   color: #fff;
   margin-bottom: 18px;
-  text-shadow: 0 0 60px rgba(255, 59, 59, 0.5);
+  text-shadow: none;
 }
 
 .p-answer-num {
@@ -590,7 +579,7 @@
 .p-answer-num b {
   color: #ff5a5a;
   font-size: 1.6em;
-  text-shadow: 0 0 30px rgba(255, 59, 59, 0.9);
+  text-shadow: none;
 }
 
 .p-answer-num span {
@@ -758,4 +747,19 @@
   .p-scrollcue i {
     animation: none;
   }
+}
+
+/* a canvas layer (the trajectories) under an SVG layer (axes and the wave line) */
+.p-chart-stack {
+  position: relative;
+  aspect-ratio: 340 / 170;
+}
+
+.p-chart-stack > canvas,
+.p-chart-stack > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
