@@ -6,11 +6,13 @@ import { Overview } from './sections/Overview';
 import { LiveCorridor } from './sections/LiveCorridor';
 import { Mathematics } from './sections/Mathematics';
 import { Creation } from './sections/Creation';
+import { Proof } from './sections/Proof';
 import { mpsToMph } from './lib/trafficMath';
 
 const VIEWS = [
   { id: 'overview', label: 'Overview' },
   { id: 'live', label: 'Live Street' },
+  { id: 'proof', label: 'Watch the Math' },
   { id: 'maths', label: 'The Mathematics' },
   { id: 'creation', label: 'The Creation' },
 ] as const;
@@ -122,6 +124,7 @@ export default function App() {
       <main>
         {view === 'overview' && <Overview traffic={traffic} sim={sim} onNavigate={go} />}
         {view === 'live' && <LiveCorridor traffic={traffic} sim={sim} />}
+        {view === 'proof' && <Proof traffic={traffic} onNavigate={go} />}
         {view === 'maths' && <Mathematics traffic={traffic} sim={sim} />}
         {view === 'creation' && <Creation traffic={traffic} sim={sim} />}
       </main>

@@ -87,6 +87,36 @@ Which predicts something you can check: jam waves should run backwards at about 
 
 <br>
 
+## 🎬 Watch the math happen
+
+![The animated proof](docs/images/06-proof.png)
+
+The **Watch the Math** tab is the whole derivation as a film you scroll through, one step at a time:
+
+| Step | What you see | The maths |
+|:--|:--|:--|
+| 1 | One car at a red, a glowing tape measures it | `L = car + gap = 24.6 ft` |
+| 2 | The car speeds up and its gap stretches | `s = L + v·τ` |
+| 3 | A mile of road packs with taillights | `k = 1/s`, up to 215 cars/mile |
+| 4 | A counting gate, and a dot that draws a graph above the road | `q = k·v` |
+| 5 | The dot's trail turns out to be a triangle | `q = 1/τ − (L/τ)·k` |
+| 6 | The units cancel and every slope becomes a speed | `(cars/hr) ÷ (cars/mi) = mph` |
+| 7 | One driver taps the brakes, and a wall of brake lights runs backwards | space-time diagram, drawn live |
+| 8 | The reveal | `w = L/τ ≈ 12 mph` |
+| 9 | The Wilshire light turns green and the queue drains | `n = (green − lost)/h ≈ 18 cars` |
+
+Nothing in it is animated by hand. Every car is placed by the same formulas as the rest of the site, and the jam and the green-light queue come from one rule: *do what the car ahead did, τ seconds later and L further back.* Scroll backwards and the film runs backwards.
+
+The deploy checks the animation too: the jam in the film is measured running backwards at 11.98 mph, and exactly 18 cars clear the green, the same as the formula.
+
+The cars are real 3D models from Kenney's [Car Kit](https://kenney.nl/assets/car-kit) (CC0, public domain), repainted in the colours people actually drive. The street, streetlights and skyline are built in code.
+
+<br>
+
+---
+
+<br>
+
 ## 👆 Click any car
 
 ![The vehicle inspector](docs/images/02-live-inspector.png)
@@ -148,7 +178,7 @@ Move the τ slider and **every diagonal pivots together**. They can't disagree w
 
 ## ✅ How you know the maths is right
 
-I didn't want "trust me". So `scripts/verify-math.ts` checks **26 things** on every deploy, and if any break, the site doesn't publish.
+I didn't want "trust me". So `scripts/verify-math.ts` checks **29 things** on every deploy, and if any break, the site doesn't publish.
 
 Three of them are numbers I never tuned, landing on values other people measured in the street:
 
@@ -242,10 +272,10 @@ src/
 │   ├── VehicleInspector   one car's own sum, solved live
 │   ├── scene/             the 3D street, buildings, signals, traffic
 │   └── charts/            the five diagrams
-└── sections/              the four pages
+└── sections/              the five pages
 
 scripts/
-├── verify-math.ts         26 assertions, gating the deploy
+├── verify-math.ts         29 assertions, gating the deploy
 ├── build-street.mjs       OSM → street.json
 ├── build-buildings.mjs    OSM → buildings.json
 └── build-roads.mjs        OSM → roads.json

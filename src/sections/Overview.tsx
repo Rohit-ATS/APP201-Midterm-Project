@@ -13,7 +13,7 @@ export function Overview({
 }: {
   traffic: TrafficHook;
   sim: SimulationHook;
-  onNavigate: (v: 'overview' | 'live' | 'maths' | 'creation') => void;
+  onNavigate: (v: 'overview' | 'live' | 'proof' | 'maths' | 'creation') => void;
 }) {
   const { analysis, params, reading } = traffic;
   const w = mpsToMph(waveSpeed(params));
@@ -61,7 +61,10 @@ export function Overview({
             </p>
 
             <div className="hero-actions">
-              <button className="btn btn-primary" onClick={() => onNavigate('maths')}>
+              <button className="btn btn-primary" onClick={() => onNavigate('proof')}>
+                Watch the math happen
+              </button>
+              <button className="btn" onClick={() => onNavigate('maths')}>
                 See the geometry
               </button>
               <button className="btn" onClick={() => onNavigate('live')}>

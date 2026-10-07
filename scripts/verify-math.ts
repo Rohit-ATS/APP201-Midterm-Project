@@ -35,6 +35,7 @@ import {
   VEHPM_TO_VEHPMI,
 } from '../src/lib/trafficMath.ts';
 import { effectiveLength, meanVehicleLength } from '../src/data/vehicleMix.ts';
+import { brakeScenario, queueScenario, speedAt as carSpeed } from '../src/proof/newell.ts';
 
 let failures = 0;
 
@@ -153,6 +154,37 @@ check(
 // 13. Flow is zero at both ends of the diagram.
 check('q(0)', flowAt(0, p) * 3600, 0, 1e-9);
 check('q(kj)', flowAt(fd.kj, p) * 3600, 0, 1e-9);
+
+console.log('\nTHE ANIMATED PROOF  (the cars are never told the answer)');
+
+// 14. In the brake animation, nobody is told about waves. Time when each car
+//     comes to rest, and where; the line through those points is the jam edge.
+{
+  const run = brakeScenario(p);
+  const rest = (n: number) => {
+    for (let i = 0; i < run.steps; i++) {
+      if (carSpeed(run, n, i * run.dt) < 0.2) return { t: i * run.dt, x: run.x[n][i] };
+    }
+    return { t: NaN, x: NaN };
+  };
+  const a = rest(4);
+  const b = rest(24);
+  check('brake animation: measured jam speed (mph)', mpsToMph((b.x - a.x) / (b.t - a.t)), -11.98, 0.1, 'should equal -L/tau');
+  let closest = Infinity;
+  for (let i = 0; i < run.steps; i++) {
+    for (let n = 1; n < run.x.length; n++) closest = Math.min(closest, run.x[n - 1][i] - run.x[n][i]);
+  }
+  check('brake animation: closest spacing (m)', closest, p.L, 0.01, 'no car ever closer than L');
+}
+
+// 15. In the green-light animation, count the cars that actually cross.
+{
+  const q = queueScenario(p, 0.42 * 90);
+  const crossed = q.crossings.filter((c) => c <= q.green).length;
+  check('green animation: cars counted at Wilshire', crossed, Math.floor(vehiclesPerGreen(p, 0.42, 90)), 0, 'matches the formula');
+  const h = q.crossings[12] - q.crossings[11];
+  check('green animation: settled headway (s)', h, saturationHeadway(p), 0.06, 'matches 1/q_max');
+}
 
 console.log(
   failures === 0 ? '\nAll checks passed.\n' : `\n${failures} check(s) FAILED.\n`,
